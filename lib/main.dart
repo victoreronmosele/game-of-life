@@ -27,18 +27,15 @@ class GameOfLifePlayground extends StatefulWidget {
 }
 
 class _GameOfLifePlaygroundState extends State<GameOfLifePlayground> {
-  List<bool> listOfFilledStates =
-      List.generate(1000, (index) => Random().nextBool());
-
   void _startGame() {
     print('_startGame');
-    setState(() {
-      listOfFilledStates.shuffle();
-    });
+    // setState(() {});
   }
 
   @override
   Widget build(BuildContext context) {
+    print('main build');
+
     double screenPadding = 10.0;
 
     return SafeArea(
@@ -51,10 +48,14 @@ class _GameOfLifePlaygroundState extends State<GameOfLifePlayground> {
         ),
         body: Padding(
           padding: EdgeInsets.all(screenPadding),
-          child: CustomPaint(
-            painter: GameOfLifePainter(
-                padding: 2 * screenPadding, filledStates: listOfFilledStates),
-            child: Container(),
+          child: Container(
+            color: Colors.black,
+            child: CustomPaint(
+              painter: GameOfLifePainter(
+                padding: 2 * screenPadding,
+              ),
+              child: Container(),
+            ),
           ),
         ),
         floatingActionButton: FloatingActionButton(
@@ -71,64 +72,98 @@ class _GameOfLifePlaygroundState extends State<GameOfLifePlayground> {
 
 class GameOfLifePainter extends CustomPainter {
   final double padding;
-  final List<bool> filledStates;
 
-  GameOfLifePainter({@required this.padding, @required this.filledStates});
+  GameOfLifePainter({
+    @required this.padding,
+  });
 
   @override
   void paint(Canvas canvas, Size size) {
     print('width size is ${size.width}');
 
-    final int numberOfBoxRows = 20;
+    final int numberOfBoxRows = 50;
     //TODO Account for top and bottom padding to calculate height
     final boxHeightDimension = size.height / numberOfBoxRows;
+    final radius = boxHeightDimension / 2;
     final int numberOfBoxColumns = (size.width - padding) ~/ boxHeightDimension;
 
     print('number of box columns $numberOfBoxColumns');
 
-    List<Offset> listOfPoints = [];
+    List<Cell> listOfCells = [];
 
-    Offset offset = Offset.zero;
+    Offset offset = Offset(radius, radius);
 
-    for (var i = 0; i < numberOfBoxRows; i++) {
-      offset = Offset(0, boxHeightDimension * i);
+    for (var i = 1; i < numberOfBoxRows; i++) {
+      offset = Offset(radius, i * boxHeightDimension);
 
       for (var i = 0; i < numberOfBoxColumns; i++) {
-        print(i);
-        listOfPoints.add(offset);
-
+        print(offset);
         var newOffsetDx = offset.dx + boxHeightDimension;
-        var newOffsetDy = i.isEven
-            ? offset.dy + boxHeightDimension
-            : offset.dy - boxHeightDimension;
+        var newOffsetDy = offset.dy;
         offset = Offset(newOffsetDx, newOffsetDy);
-        listOfPoints.add(offset);
+        listOfCells.add(Cell(
+            Random().nextInt(3).isEven ? CellState.alive : CellState.dead,
+            offset));
       }
     }
 
-    final paint = Paint()
-      ..color = Colors.white
-      ..strokeWidth = 2
-      ..style = PaintingStyle.stroke;
+    for (var i = 0; i < listOfCells.length; i++) {
+      final paint = Paint()
+        ..color = Colors.blue
+        ..style = listOfCells.elementAt(i).cellState == CellState.alive
+            ? PaintingStyle.fill
+            : PaintingStyle.stroke;
 
-    for (var i = 0; i < listOfPoints.length; i++) {
-      PaintingStyle currentPaintingStyle = filledStates.elementAt(i) == true
-          ? PaintingStyle.fill
-          : PaintingStyle.stroke;
-      if (i + 1 >= listOfPoints.length) {
+      if (i + 1 >= listOfCells.length) {
         break;
       } else {
-        var firstBoxPoint = listOfPoints.elementAt(i);
-        var secondBoxPoint = listOfPoints.elementAt(i + 1);
+        Offset firstBoxPoint = listOfCells.elementAt(i).point;
+        Offset secondBoxPoint = listOfCells.elementAt(i + 1).point;
 
         if (firstBoxPoint == secondBoxPoint) continue;
 
-        canvas.drawRect(Rect.fromPoints(firstBoxPoint, secondBoxPoint),
-            paint..style = currentPaintingStyle);
+// canvas.
+        canvas.drawRect(
+            Rect.fromCircle(
+              center: firstBoxPoint,
+              radius: boxHeightDimension - padding,
+            ),
+            paint);
       }
     }
   }
 
   @override
   bool shouldRepaint(GameOfLifePainter oldDelegate) => false;
+}
+
+enum CellState { alive, dead }
+
+class Cell {
+  CellState cellState;
+  Offset point;
+
+  Cell(this.cellState, this.point);
+
+  Offset getNewPoint(double x, double y) {
+    double neighbourHorizontalPoint = point.dx + x;
+    double neighbourVerticalPoint = point.dy + y;
+
+    return Offset(neighbourHorizontalPoint, neighbourVerticalPoint);
+  }
+
+  List<Offset> getNeighborPoints(double boxHeightDimension) {
+    List<Offset> neighborPoints = [
+      getNewPoint(-(boxHeightDimension), -(boxHeightDimension)),
+      getNewPoint(-(boxHeightDimension), 0),
+      getNewPoint(-(boxHeightDimension), boxHeightDimension),
+      getNewPoint(0, -(boxHeightDimension)),
+      getNewPoint(0, boxHeightDimension),
+      getNewPoint(boxHeightDimension, -(boxHeightDimension)),
+      getNewPoint(boxHeightDimension, 0),
+      getNewPoint(boxHeightDimension, boxHeightDimension),
+    ];
+
+    return neighborPoints;
+  }
 }
