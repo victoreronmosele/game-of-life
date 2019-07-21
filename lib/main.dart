@@ -3,6 +3,7 @@ import 'dart:math';
 
 import 'package:flutter/material.dart';
 import 'package:flutter/semantics.dart';
+import 'package:flutter/widgets.dart';
 
 void main() => runApp(MyApp());
 
@@ -34,6 +35,8 @@ class _GameOfLifePlaygroundState extends State<GameOfLifePlayground> {
   Size _customPaintSize;
   List<Cell> _listOfCells = [];
   double _boxHeightDimension;
+  int generation = 0;
+   Duration interval ;
 
   @override
   void initState() {
@@ -44,14 +47,12 @@ class _GameOfLifePlaygroundState extends State<GameOfLifePlayground> {
 
   void _startGame() {
     print('_startGame');
-    // _checkForCellStates();
-    _checkForNeighboringCellStates();
+    interval = Duration(milliseconds: 500);
+    Timer.periodic(interval , (Timer t) => _runThroughGeneration());
   }
 
-  _checkForNeighboringCellStates() {
+  _runThroughGeneration() {
     _listOfCells.forEach((cell) {
-      int index = _listOfCells.indexOf(cell);
-
       List<Offset> listOfNeighboringPoints =
           cell.getNeighborPoints(_boxHeightDimension);
 
@@ -61,32 +62,22 @@ class _GameOfLifePlaygroundState extends State<GameOfLifePlayground> {
 
       _reactToNeighbors(cell, listOfNeigboringCells);
     });
+
+    setState(() {
+      generation++;
+    });
   }
 
   _reactToNeighbors(Cell cell, List<Cell> listOfNeighboringCells) {
     int numberOfLivingNeighbors = listOfNeighboringCells
         .where((_) => _.cellState == CellState.alive)
         .length;
-    print(
-        'Cell initial Status ====> ${(cell.cellState).toString().toUpperCase()}');
-
-    print('Living neighbors are ====> $numberOfLivingNeighbors');
 
     CellState newCellState = Rule().getNewCellState(
         initialCellState: cell.cellState,
         numberOfLivingNeighbors: numberOfLivingNeighbors);
 
     cell.cellState = newCellState;
-    print('cellState = ${cell.cellState} ');
-
-    print('');
-  }
-
-  _checkForCellStates() {
-    _listOfCells.forEach((cell) {
-      int index = _listOfCells.indexOf(cell);
-      print(index.toString() + cell.cellState.toString());
-    });
   }
 
   void getListOfCells(_) {
@@ -109,10 +100,14 @@ class _GameOfLifePlaygroundState extends State<GameOfLifePlayground> {
         var newOffsetDy = offset.dy;
         offset = Offset(newOffsetDx, newOffsetDy);
         _listOfCells.add(Cell(
-            Random().nextInt(3).isEven ? CellState.alive : CellState.dead,
+            Random().nextBool() == true ? CellState.alive : CellState.dead,
             offset));
       }
     }
+
+    setState(() {
+      generation++;
+    });
 
     print(_listOfCells.length.toString() + 'cells');
   }
@@ -135,6 +130,17 @@ class _GameOfLifePlaygroundState extends State<GameOfLifePlayground> {
           ),
           backgroundColor: Colors.transparent,
           elevation: 0.0,
+          actions: <Widget>[
+            Center(
+              child: Padding(
+                padding: const EdgeInsets.all(20.0),
+                child: Text(
+                  generation.toString(),
+                  style: TextStyle(color: Colors.white),
+                ),
+              ),
+            )
+          ],
         ),
         body: Padding(
           padding: EdgeInsets.all(_screenPadding),
