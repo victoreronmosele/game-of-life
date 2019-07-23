@@ -2,20 +2,23 @@ import 'dart:async';
 import 'dart:math';
 
 import 'package:flutter/material.dart';
-import 'package:flutter/semantics.dart';
 import 'package:flutter/widgets.dart';
+import 'package:game_of_life_playground/cell.dart';
+import 'package:game_of_life_playground/cell_state.dart';
+import 'package:game_of_life_playground/rule.dart';
 
 void main() => runApp(MyApp());
 
 class MyApp extends StatelessWidget {
+  String title = 'Game of Life Playground';
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
-      title: 'Flutter Demo',
+      title: title,
       theme: ThemeData(
         primarySwatch: Colors.blue,
       ),
-      home: GameOfLifePlayground(title: 'Game of Life Playground'),
+      home: GameOfLifePlayground(title: title),
     );
   }
 }
@@ -36,7 +39,7 @@ class _GameOfLifePlaygroundState extends State<GameOfLifePlayground> {
   List<Cell> _listOfCells = [];
   double _boxHeightDimension;
   int generation = 0;
-   Duration interval ;
+  Duration interval;
 
   @override
   void initState() {
@@ -46,9 +49,8 @@ class _GameOfLifePlaygroundState extends State<GameOfLifePlayground> {
   }
 
   void _startGame() {
-    print('_startGame');
     interval = Duration(milliseconds: 500);
-    Timer.periodic(interval , (Timer t) => _runThroughGeneration());
+    Timer.periodic(interval, (Timer t) => _runThroughGeneration());
   }
 
   _runThroughGeneration() {
@@ -81,7 +83,6 @@ class _GameOfLifePlaygroundState extends State<GameOfLifePlayground> {
   }
 
   void getListOfCells(_) {
-    //TODO Account for top and bottom padding to calculate height
     setState(() {
       _boxHeightDimension = _customPaintSize.height / _numberOfBoxRows;
     });
@@ -100,8 +101,7 @@ class _GameOfLifePlaygroundState extends State<GameOfLifePlayground> {
         var newOffsetDy = offset.dy;
         offset = Offset(newOffsetDx, newOffsetDy);
         _listOfCells.add(Cell(
-            Random().nextBool() == true ? CellState.alive : CellState.dead,
-            offset));
+            Random().nextBool() ? CellState.alive : CellState.dead, offset));
       }
     }
 
@@ -109,14 +109,12 @@ class _GameOfLifePlaygroundState extends State<GameOfLifePlayground> {
       generation++;
     });
 
-    print(_listOfCells.length.toString() + 'cells');
   }
 
   _getCustomPaintSize(_) {
     final RenderBox containerRenderBox =
         _customPaintKey.currentContext.findRenderObject();
     _customPaintSize = containerRenderBox.size;
-    print('_customPaintSize => $_customPaintSize');
   }
 
   @override
@@ -160,6 +158,7 @@ class _GameOfLifePlaygroundState extends State<GameOfLifePlayground> {
         floatingActionButton: FloatingActionButton(
           backgroundColor: Colors.white,
           foregroundColor: Colors.black,
+          mini: true,
           onPressed: _startGame,
           tooltip: 'Start Game',
           child: Icon(Icons.play_arrow),
@@ -205,53 +204,4 @@ class GameOfLifePainter extends CustomPainter {
 
   @override
   bool shouldRepaint(GameOfLifePainter oldDelegate) => true;
-}
-
-enum CellState { alive, dead }
-
-class Cell {
-  CellState cellState;
-  Offset point;
-
-  Cell(this.cellState, this.point);
-
-  Offset getNewPoint(double x, double y) {
-    double neighbourHorizontalPoint = point.dx + x;
-    double neighbourVerticalPoint = point.dy + y;
-
-    return Offset(neighbourHorizontalPoint, neighbourVerticalPoint);
-  }
-
-  List<Offset> getNeighborPoints(double boxHeightDimension) {
-    List<Offset> neighborPoints = [
-      getNewPoint(-(boxHeightDimension), -(boxHeightDimension)),
-      getNewPoint(-(boxHeightDimension), 0),
-      getNewPoint(-(boxHeightDimension), boxHeightDimension),
-      getNewPoint(0, -(boxHeightDimension)),
-      getNewPoint(0, boxHeightDimension),
-      getNewPoint(boxHeightDimension, -(boxHeightDimension)),
-      getNewPoint(boxHeightDimension, 0),
-      getNewPoint(boxHeightDimension, boxHeightDimension),
-    ];
-
-    return neighborPoints;
-  }
-}
-
-class Rule {
-  CellState getNewCellState(
-      {@required CellState initialCellState,
-      @required int numberOfLivingNeighbors}) {
-    CellState newCellState;
-
-    if (numberOfLivingNeighbors == 3) {
-      newCellState = CellState.alive;
-    } else if (numberOfLivingNeighbors != 2) {
-      newCellState = CellState.dead;
-    } else {
-      newCellState = initialCellState;
-    }
-
-    return newCellState;
-  }
 }

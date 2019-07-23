@@ -1,0 +1,2 @@
+enum CellState { alive, dead }
+
