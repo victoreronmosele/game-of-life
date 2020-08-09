@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/widgets.dart';
 import 'package:game_of_life_playground/cell.dart';
 import 'package:game_of_life_playground/cell_state.dart';
+import 'package:game_of_life_playground/data/app_colors.dart';
 import 'package:game_of_life_playground/rule.dart';
 
 void main() => runApp(MyApp());
@@ -108,7 +109,6 @@ class _GameOfLifePlaygroundState extends State<GameOfLifePlayground> {
     setState(() {
       generation++;
     });
-
   }
 
   _getCustomPaintSize(_) {
@@ -190,7 +190,7 @@ class GameOfLifePainter extends CustomPainter {
     for (var i = 0; i < listOfCells.length; i++) {
       Cell currentCell = listOfCells.elementAt(i);
       final paint = Paint()
-        ..color = Colors.blue
+        ..color = AppColors.hackerGreen
         ..style = currentCell.cellState == CellState.alive
             ? PaintingStyle.fill
             : PaintingStyle.stroke;
