@@ -11,7 +11,7 @@ import 'package:game_of_life_playground/rule.dart';
 void main() => runApp(MyApp());
 
 class MyApp extends StatelessWidget {
-  String title = 'Game of Life Playground';
+  final String title = 'Game of Life Playground';
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
@@ -25,14 +25,16 @@ class MyApp extends StatelessWidget {
 }
 
 class GameOfLifePlayground extends StatefulWidget {
-  GameOfLifePlayground({Key key, this.title}) : super(key: key);
   final String title;
+
+  GameOfLifePlayground({Key key, this.title}) : super(key: key);
 
   @override
   _GameOfLifePlaygroundState createState() => _GameOfLifePlaygroundState();
 }
 
-class _GameOfLifePlaygroundState extends State<GameOfLifePlayground> {
+class _GameOfLifePlaygroundState extends State<GameOfLifePlayground>
+    with SingleTickerProviderStateMixin {
   GlobalKey _customPaintKey = GlobalKey();
   final double _screenPadding = 10.0;
   final int _numberOfBoxRows = 50;
@@ -40,18 +42,44 @@ class _GameOfLifePlaygroundState extends State<GameOfLifePlayground> {
   List<Cell> _listOfCells = [];
   double _boxHeightDimension;
   int generation = 0;
-  Duration interval;
+  Duration interval = Duration(milliseconds: 500);
+  bool _isGameRunning;
+  bool _minimizeGame;
+  DragUpdateDetails _dragUpdateDetails;
+
+  AnimationController _animationController;
+  Animation<Color> _colorAnimation;
+  final ColorTween _colorTween =
+      ColorTween(begin: Colors.green, end: Colors.red);
 
   @override
   void initState() {
     super.initState();
+
+    _animationController =
+        AnimationController(vsync: this, duration: Duration(seconds: 1));
+    _colorAnimation = _colorTween.animate(_animationController);
+
+    _isGameRunning = false;
+    _minimizeGame = true;
     WidgetsBinding.instance.addPostFrameCallback(_getCustomPaintSize);
     WidgetsBinding.instance.addPostFrameCallback(getListOfCells);
   }
 
   void _startGame() {
-    interval = Duration(milliseconds: 500);
-    Timer.periodic(interval, (Timer t) => _runThroughGeneration());
+    if (_isGameRunning) {
+      _animationController.reverse();
+      setState(() {
+        _isGameRunning = false;
+      });
+    } else {
+      _animationController.forward();
+      setState(() {
+        _isGameRunning = true;
+      });
+
+      Timer.periodic(interval, (Timer t) => _runThroughGeneration());
+    }
   }
 
   _runThroughGeneration() {
@@ -140,32 +168,59 @@ class _GameOfLifePlaygroundState extends State<GameOfLifePlayground> {
             )
           ],
         ),
-        body: Padding(
-          padding: EdgeInsets.all(_screenPadding),
-          child: Container(
-            color: Colors.black,
-            child: CustomPaint(
-              key: _customPaintKey,
-              painter: GameOfLifePainter(
-                  padding: 2 * _screenPadding,
-                  numberOfBoxRows: _numberOfBoxRows,
-                  listOfCells: _listOfCells,
-                  boxHeightDimension: _boxHeightDimension),
-              child: Container(),
+        body: GestureDetector(
+          onVerticalDragUpdate: (DragUpdateDetails dragUpdateDetails) {
+            _dragUpdateDetails = dragUpdateDetails;
+          },
+          onVerticalDragEnd: (DragEndDetails dragEndDetails) {
+            if (_isVerticalDragDirectionNegative()) {
+              _minimizeGame = true;
+            } else {
+              _minimizeGame = false;
+            }
+
+            setState(() {});
+          },
+          onVerticalDragStart: (DragStartDetails dragStartDetails) {},
+          onVerticalDragCancel: () {},
+          onVerticalDragDown: (_) {},
+          child: Transform.scale(
+            scale: _minimizeGame ? 0.8 : 1.0,
+            child: Container(
+              color: _colorAnimation.value.withOpacity(0.2),
+              child: Container(
+                color: Colors.black,
+                child: CustomPaint(
+                  key: _customPaintKey,
+                  painter: GameOfLifePainter(
+                      padding: 2 * _screenPadding,
+                      numberOfBoxRows: _numberOfBoxRows,
+                      listOfCells: _listOfCells,
+                      boxHeightDimension: _boxHeightDimension),
+                  child: Container(),
+                ),
+              ),
             ),
           ),
         ),
-        floatingActionButton: FloatingActionButton(
-          backgroundColor: Colors.white,
-          foregroundColor: Colors.black,
-          mini: true,
-          onPressed: _startGame,
-          tooltip: 'Start Game',
-          child: Icon(Icons.play_arrow),
+        floatingActionButton: AnimatedOpacity(
+          duration: Duration(seconds: 1),
+          opacity: _minimizeGame ? 1.0 : 0.0,
+          child: FloatingActionButton(
+            backgroundColor: _colorAnimation.value,
+            foregroundColor: Colors.white,
+            mini: true,
+            onPressed: _startGame,
+            tooltip: 'Start Game',
+            child: Icon(Icons.play_arrow),
+          ),
         ),
       ),
     );
   }
+
+  bool _isVerticalDragDirectionNegative() =>
+      _dragUpdateDetails.delta.direction.isNegative;
 }
 
 class GameOfLifePainter extends CustomPainter {
@@ -190,7 +245,9 @@ class GameOfLifePainter extends CustomPainter {
     for (var i = 0; i < listOfCells.length; i++) {
       Cell currentCell = listOfCells.elementAt(i);
       final paint = Paint()
-        ..color = AppColors.hackerGreen
+        ..color = currentCell.cellState == CellState.alive
+            ? AppColors.hackerGreen
+            : Colors.red
         ..style = currentCell.cellState == CellState.alive
             ? PaintingStyle.fill
             : PaintingStyle.stroke;
