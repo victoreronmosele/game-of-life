@@ -2,10 +2,10 @@ import 'dart:async';
 import 'dart:math';
 
 import 'package:flutter/material.dart';
-import 'package:game_of_life_playground/cell.dart';
-import 'package:game_of_life_playground/cell_state.dart';
+import 'package:game_of_life_playground/models/cell.dart';
+import 'package:game_of_life_playground/models/cell_state.dart';
 import 'package:game_of_life_playground/data/app_strings.dart';
-import 'package:game_of_life_playground/rule.dart';
+import 'package:game_of_life_playground/models/rule.dart';
 import 'package:game_of_life_playground/ui/data/app_colors.dart';
 
 class GameScreen extends StatefulWidget {
