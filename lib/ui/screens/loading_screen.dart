@@ -1,10 +1,6 @@
-import 'dart:math';
-
 import 'package:flutter/material.dart';
 import 'package:game_of_life_playground/data/app_strings.dart';
 import 'package:game_of_life_playground/ui/data/app_colors.dart';
-
-GlobalKey _textKey;
 
 class LoadingScreen extends StatefulWidget {
   LoadingScreen({
@@ -17,32 +13,37 @@ class LoadingScreen extends StatefulWidget {
 
 class _LoadingScreenState extends State<LoadingScreen>
     with TickerProviderStateMixin {
-  AnimationController _slideController, _loadController;
-  Duration _slideDuration, _loadDuration;
+  GlobalKey _textKey;
 
-  Color _boxBackgroundColor, _waveColor;
+  AnimationController _slideController;
 
-  TextStyle _textStyle;
+  Duration _slideDuration;
+
+  Color _boxBackgroundColor;
+
+  TextStyle _baseTextStyle;
+  TextStyle _strokeTextStyle;
+
+  String _loadingText;
 
   @override
   void initState() {
     super.initState();
 
     _textKey = GlobalKey();
-
     _slideDuration = const Duration(milliseconds: 4000);
-
     _slideController =
         AnimationController(vsync: this, duration: _slideDuration);
-
-    _loadController = AnimationController(vsync: this, duration: _loadDuration);
-
     _boxBackgroundColor = Colors.black;
-    _waveColor = AppColors.green;
+    _baseTextStyle = TextStyle(fontSize: 48, fontWeight: FontWeight.bold);
+    _strokeTextStyle = _baseTextStyle.copyWith(
+      foreground: Paint()
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = 1
+        ..color = AppColors.green,
+    );
+    _loadingText = AppStrings.loadingMessage.toUpperCase();
 
-    _textStyle = TextStyle(fontSize: 48, fontWeight: FontWeight.bold);
-
-    _slideController.forward();
     _slideController.addListener(() {
       if (_slideController.isCompleted) {
         _slideController.reverse();
@@ -50,33 +51,36 @@ class _LoadingScreenState extends State<LoadingScreen>
         _slideController.forward();
       }
     });
+
+    _slideController.forward();
   }
 
   @override
   void dispose() {
     _slideController?.stop();
     _slideController?.dispose();
-    _loadController?.stop();
-    _loadController?.dispose();
+
     super.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
+    final screenHeight = MediaQuery.of(context).size.height;
+    final screenWidth = MediaQuery.of(context).size.width;
     return SizedBox(
-      height: MediaQuery.of(context).size.height,
-      width: MediaQuery.of(context).size.width,
+      height: screenHeight,
+      width: screenWidth,
       child: Stack(
         children: <Widget>[
           SizedBox(
-            height: MediaQuery.of(context).size.height,
-            width: MediaQuery.of(context).size.width,
+            height: screenHeight,
+            width: screenWidth,
             child: AnimatedBuilder(
               animation: _slideController,
               builder: (BuildContext context, Widget child) {
                 return CustomPaint(
-                  painter: WavePainter(
-                      slideController: _slideController, waveColor: _waveColor),
+                  painter: SlidePainter(
+                      slideAnimation: _slideController, textKey: _textKey),
                 );
               },
             ),
@@ -88,26 +92,18 @@ class _LoadingScreenState extends State<LoadingScreen>
             ], stops: [
               0.0
             ]).createShader(bounds),
-            child: Container(
-              color: Colors.transparent,
-              child: Center(
-                child: Text(
-                  AppStrings.loadingMessage.toUpperCase(),
-                  key: _textKey,
-                  style: _textStyle,
-                ),
+            child: Center(
+              child: Text(
+                _loadingText,
+                key: _textKey,
+                style: _baseTextStyle,
               ),
             ),
           ),
           Center(
             child: Text(
-              AppStrings.loadingMessage.toUpperCase(),
-              style: _textStyle.copyWith(
-                foreground: Paint()
-                  ..style = PaintingStyle.stroke
-                  ..strokeWidth = 1
-                  ..color = AppColors.green,
-              ),
+              _loadingText,
+              style: _strokeTextStyle,
             ),
           )
         ],
@@ -116,29 +112,34 @@ class _LoadingScreenState extends State<LoadingScreen>
   }
 }
 
-class WavePainter extends CustomPainter {
-  Animation<double> slideController;
+class SlidePainter extends CustomPainter {
+  final Animation<double> slideAnimation;
+  final GlobalKey textKey;
 
-  Color waveColor;
-
-  WavePainter({@required this.slideController, @required this.waveColor});
+  SlidePainter({@required this.slideAnimation, @required this.textKey});
 
   @override
   void paint(Canvas canvas, Size size) {
-    double width = (size.width != null) ? size.width : 200;
-    double height = (size.height != null) ? size.height : 200;
+    final double canvasWidth = size.width;
+    final double canvasHeight = size.height;
 
-    Paint wavePaint = Paint()
-      ..color = waveColor
+    final Paint wavePaint = Paint()
+      ..color = AppColors.green
       ..style = PaintingStyle.fill;
 
-    RenderBox textBox = _textKey.currentContext.findRenderObject();
+    final RenderBox _widgetRenderBox = textKey.currentContext.findRenderObject();
+    final double _renderedWidgetHeight = _widgetRenderBox.size.height;
+    final double _renderedWidgetWidth = _widgetRenderBox.size.width;
 
-    double _textHeight = textBox.size.height;
-    double _textWidth = textBox.size.width;
+    final double widgetLeftMargin = (canvasWidth - _renderedWidgetWidth) / 2;
+    final double widgetTopMargin = (canvasHeight - _renderedWidgetHeight) / 2;
 
-    Rect rect = Offset((width - _textWidth) / 2, (height - _textHeight) / 2) &
-        Size(_textWidth * slideController.value, _textHeight);
+    final Offset widgetOffset = Offset(widgetLeftMargin, widgetTopMargin);
+    final Size widgetSize = Size(
+        _renderedWidgetWidth * slideAnimation.value, _renderedWidgetHeight);
+
+    final Rect rect = widgetOffset & widgetSize;
+
     canvas.drawRect(rect, wavePaint);
   }
 
