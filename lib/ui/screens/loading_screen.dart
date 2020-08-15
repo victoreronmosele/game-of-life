@@ -35,7 +35,13 @@ class _LoadingScreenState extends State<LoadingScreen>
     _slideController =
         AnimationController(vsync: this, duration: _slideDuration);
     _boxBackgroundColor = Colors.black;
-
+    _baseTextStyle = TextStyle(fontSize: 48, fontWeight: FontWeight.bold, fontFamily: 'Comic Sans');
+    _strokeTextStyle = _baseTextStyle.copyWith(
+      foreground: Paint()
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = 1
+        ..color = AppColors.hackerGreen,
+    );
     _loadingText = AppStrings.loadingMessage.toUpperCase();
 
     _slideController.addListener(() {
