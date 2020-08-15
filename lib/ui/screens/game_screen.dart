@@ -132,9 +132,7 @@ class _GameScreenState extends State<GameScreen>
       child: Scaffold(
         backgroundColor: Colors.black,
         appBar: AppBar(
-          title: Text(
-            AppStrings.appTitle,
-          ),
+          automaticallyImplyLeading: false,
           backgroundColor: Colors.transparent,
           elevation: 0.0,
           actions: <Widget>[
@@ -191,7 +189,7 @@ class _GameScreenState extends State<GameScreen>
             backgroundColor: _colorAnimation.value,
             foregroundColor: Colors.white,
             mini: true,
-            onPressed: _startGame,
+            onPressed: _minimizeGame ? _startGame : null,
             tooltip: 'Start Game',
             child: Icon(Icons.play_arrow),
           ),
