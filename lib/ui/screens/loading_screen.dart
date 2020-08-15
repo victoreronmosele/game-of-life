@@ -35,13 +35,7 @@ class _LoadingScreenState extends State<LoadingScreen>
     _slideController =
         AnimationController(vsync: this, duration: _slideDuration);
     _boxBackgroundColor = Colors.black;
-    _baseTextStyle = TextStyle(fontSize: 48, fontWeight: FontWeight.bold);
-    _strokeTextStyle = _baseTextStyle.copyWith(
-      foreground: Paint()
-        ..style = PaintingStyle.stroke
-        ..strokeWidth = 1
-        ..color = AppColors.hackerGreen,
-    );
+
     _loadingText = AppStrings.loadingMessage.toUpperCase();
 
     _slideController.addListener(() {
@@ -67,51 +61,62 @@ class _LoadingScreenState extends State<LoadingScreen>
   Widget build(BuildContext context) {
     final screenHeight = MediaQuery.of(context).size.height;
     final screenWidth = MediaQuery.of(context).size.width;
+
+    _baseTextStyle =
+        TextStyle(fontSize: screenWidth / 10, fontWeight: FontWeight.bold);
+    _strokeTextStyle = _baseTextStyle.copyWith(
+      foreground: Paint()
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = 1
+        ..color = AppColors.hackerGreen,
+    );
+
     return Scaffold(
-        backgroundColor: Colors.black,
-        body: Center(
-          child: SizedBox(
-        height: screenHeight,
-        width: screenWidth,
-        child: Stack(
-          children: <Widget>[
-            SizedBox(
-              height: screenHeight,
-              width: screenWidth,
-              child: AnimatedBuilder(
-                animation: _slideController,
-                builder: (BuildContext context, Widget child) {
-                  return CustomPaint(
-                    painter: SlidePainter(
-                        slideAnimation: _slideController, textKey: _textKey),
-                  );
-                },
-              ),
-            ),
-            ShaderMask(
-              blendMode: BlendMode.srcOut,
-              shaderCallback: (bounds) => LinearGradient(colors: [
-                _boxBackgroundColor,
-              ], stops: [
-                0.0
-              ]).createShader(bounds),
-              child: Center(
-                child: Text(
-                  _loadingText,
-                  key: _textKey,
-                  style: _baseTextStyle,
+      backgroundColor: Colors.black,
+      body: Center(
+        child: SizedBox(
+          height: screenHeight,
+          width: screenWidth,
+          child: Stack(
+            children: <Widget>[
+              SizedBox(
+                height: screenHeight,
+                width: screenWidth,
+                child: AnimatedBuilder(
+                  animation: _slideController,
+                  builder: (BuildContext context, Widget child) {
+                    return CustomPaint(
+                      painter: SlidePainter(
+                          slideAnimation: _slideController, textKey: _textKey),
+                    );
+                  },
                 ),
               ),
-            ),
-            Center(
-              child: Text(
-                _loadingText,
-                style: _strokeTextStyle,
+              ShaderMask(
+                blendMode: BlendMode.srcOut,
+                shaderCallback: (bounds) => LinearGradient(colors: [
+                  _boxBackgroundColor,
+                ], stops: [
+                  0.0
+                ]).createShader(bounds),
+                child: Center(
+                  child: Text(
+                    _loadingText,
+                    key: _textKey,
+                    style: _baseTextStyle,
+                  ),
+                ),
               ),
-            )
-          ],
+              Center(
+                child: Text(
+                  _loadingText,
+                  style: _strokeTextStyle,
+                ),
+              )
+            ],
+          ),
         ),
-      ),),
+      ),
     );
   }
 }
@@ -131,7 +136,8 @@ class SlidePainter extends CustomPainter {
       ..color = AppColors.hackerGreen
       ..style = PaintingStyle.fill;
 
-    final RenderBox _widgetRenderBox = textKey.currentContext.findRenderObject();
+    final RenderBox _widgetRenderBox =
+        textKey.currentContext.findRenderObject();
     final double _renderedWidgetHeight = _widgetRenderBox.size.height;
     final double _renderedWidgetWidth = _widgetRenderBox.size.width;
 

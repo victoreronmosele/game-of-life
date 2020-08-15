@@ -35,7 +35,7 @@ class _BaseScreenState extends State<BaseScreen> {
   void initState() {
     super.initState();
 
-    Future.delayed((Duration(seconds: 90)), () {
+    Future.delayed((Duration(seconds: 5)), () {
       Navigator.pushReplacement(
         context,
         MaterialPageRoute(builder: (context) => GameScreen()),
