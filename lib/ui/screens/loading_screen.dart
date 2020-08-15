@@ -67,47 +67,51 @@ class _LoadingScreenState extends State<LoadingScreen>
   Widget build(BuildContext context) {
     final screenHeight = MediaQuery.of(context).size.height;
     final screenWidth = MediaQuery.of(context).size.width;
-    return SizedBox(
-      height: screenHeight,
-      width: screenWidth,
-      child: Stack(
-        children: <Widget>[
-          SizedBox(
-            height: screenHeight,
-            width: screenWidth,
-            child: AnimatedBuilder(
-              animation: _slideController,
-              builder: (BuildContext context, Widget child) {
-                return CustomPaint(
-                  painter: SlidePainter(
-                      slideAnimation: _slideController, textKey: _textKey),
-                );
-              },
-            ),
-          ),
-          ShaderMask(
-            blendMode: BlendMode.srcOut,
-            shaderCallback: (bounds) => LinearGradient(colors: [
-              _boxBackgroundColor,
-            ], stops: [
-              0.0
-            ]).createShader(bounds),
-            child: Center(
-              child: Text(
-                _loadingText,
-                key: _textKey,
-                style: _baseTextStyle,
+    return Scaffold(
+        backgroundColor: Colors.black,
+        body: Center(
+          child: SizedBox(
+        height: screenHeight,
+        width: screenWidth,
+        child: Stack(
+          children: <Widget>[
+            SizedBox(
+              height: screenHeight,
+              width: screenWidth,
+              child: AnimatedBuilder(
+                animation: _slideController,
+                builder: (BuildContext context, Widget child) {
+                  return CustomPaint(
+                    painter: SlidePainter(
+                        slideAnimation: _slideController, textKey: _textKey),
+                  );
+                },
               ),
             ),
-          ),
-          Center(
-            child: Text(
-              _loadingText,
-              style: _strokeTextStyle,
+            ShaderMask(
+              blendMode: BlendMode.srcOut,
+              shaderCallback: (bounds) => LinearGradient(colors: [
+                _boxBackgroundColor,
+              ], stops: [
+                0.0
+              ]).createShader(bounds),
+              child: Center(
+                child: Text(
+                  _loadingText,
+                  key: _textKey,
+                  style: _baseTextStyle,
+                ),
+              ),
             ),
-          )
-        ],
-      ),
+            Center(
+              child: Text(
+                _loadingText,
+                style: _strokeTextStyle,
+              ),
+            )
+          ],
+        ),
+      ),),
     );
   }
 }

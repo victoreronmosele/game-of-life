@@ -1,5 +1,6 @@
-import 'package:flutter/material.dart';
-import 'package:game_of_life_playground/cell_state.dart';
+import 'dart:ui';
+
+import 'package:game_of_life_playground/models/cell_state.dart';
 
 class Cell {
   CellState cellState;
@@ -29,4 +30,3 @@ class Cell {
     return neighborPoints;
   }
 }
-
