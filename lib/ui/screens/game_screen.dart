@@ -2,7 +2,6 @@ import 'dart:async';
 import 'dart:math';
 
 import 'package:flutter/material.dart';
-import 'package:game_of_life_playground/data/app_strings.dart';
 import 'package:game_of_life_playground/models/cell.dart';
 import 'package:game_of_life_playground/models/cell_state.dart';
 import 'package:game_of_life_playground/models/rule.dart';
@@ -27,6 +26,7 @@ class _GameScreenState extends State<GameScreen>
   bool _isGameRunning;
   bool _minimizeGame;
   DragUpdateDetails _dragUpdateDetails;
+  Timer _gameTimer;
 
   AnimationController _animationController;
   Animation<Color> _colorAnimation;
@@ -47,19 +47,26 @@ class _GameScreenState extends State<GameScreen>
     WidgetsBinding.instance.addPostFrameCallback(getListOfCells);
   }
 
-  void _startGame() {
+  Future<void> _toggleGameState() async {
     if (_isGameRunning) {
-      _animationController.reverse();
+      _gameTimer?.cancel();
+
+      await _animationController.reverse();
+
       setState(() {
         _isGameRunning = false;
       });
     } else {
-      _animationController.forward();
+      if (_gameTimer == null || !_gameTimer.isActive) {
+        _gameTimer =
+            Timer.periodic(_interval, (Timer t) => _runThroughGeneration());
+      }
+
+      await _animationController.forward();
+
       setState(() {
         _isGameRunning = true;
       });
-
-      Timer.periodic(_interval, (Timer t) => _runThroughGeneration());
     }
   }
 
@@ -160,23 +167,22 @@ class _GameScreenState extends State<GameScreen>
 
             setState(() {});
           },
-          onVerticalDragStart: (DragStartDetails dragStartDetails) {},
-          onVerticalDragCancel: () {},
-          onVerticalDragDown: (_) {},
           child: Transform.scale(
             scale: _minimizeGame ? 0.8 : 1.0,
             child: Container(
               color: _colorAnimation.value.withOpacity(0.2),
               child: Container(
                 color: Colors.black,
-                child: CustomPaint(
-                  key: _customPaintKey,
-                  painter: GameOfLifePainter(
-                      padding: 2 * _screenPadding,
-                      numberOfBoxRows: _numberOfBoxRows,
-                      listOfCells: _listOfCells,
-                      boxHeightDimension: _boxHeightDimension),
-                  child: Container(),
+                child: RepaintBoundary(
+                  child: CustomPaint(
+                    key: _customPaintKey,
+                    painter: GameOfLifePainter(
+                        padding: 2 * _screenPadding,
+                        numberOfBoxRows: _numberOfBoxRows,
+                        listOfCells: _listOfCells,
+                        boxHeightDimension: _boxHeightDimension),
+                    child: Container(),
+                  ),
                 ),
               ),
             ),
@@ -189,14 +195,17 @@ class _GameScreenState extends State<GameScreen>
             backgroundColor: _colorAnimation.value,
             foregroundColor: Colors.white,
             mini: true,
-            onPressed: _minimizeGame ? _startGame : null,
+            onPressed: _minimizeGame ? _toggleGameState : null,
             tooltip: 'Start Game',
-            child: Icon(Icons.play_arrow),
+            child: Icon(_buildPlayPauseButton()),
           ),
         ),
       ),
     );
   }
+
+  IconData _buildPlayPauseButton() =>
+      _isGameRunning ? Icons.pause : Icons.play_arrow;
 
   bool _isVerticalDragDirectionNegative() =>
       _dragUpdateDetails.delta.direction.isNegative;
@@ -207,6 +216,13 @@ class GameOfLifePainter extends CustomPainter {
   final int numberOfBoxRows;
   final List<Cell> listOfCells;
   final boxHeightDimension;
+
+  static final Paint _aliveCellPaint = Paint()
+    ..color = AppColors.hackerGreen
+    ..style = PaintingStyle.fill;
+  static final Paint _deadCellPaint = Paint()
+    ..color = AppColors.red
+    ..style = PaintingStyle.stroke;
 
   GameOfLifePainter(
       {@required this.padding,
@@ -223,13 +239,9 @@ class GameOfLifePainter extends CustomPainter {
       List<Cell> listOfCells, double boxHeightDimension, Canvas canvas) {
     for (var i = 0; i < listOfCells.length; i++) {
       Cell currentCell = listOfCells.elementAt(i);
-      final paint = Paint()
-        ..color = currentCell.cellState == CellState.alive
-            ? AppColors.hackerGreen
-            : Colors.red
-        ..style = currentCell.cellState == CellState.alive
-            ? PaintingStyle.fill
-            : PaintingStyle.stroke;
+      final paint = currentCell.cellState == CellState.alive
+          ? _aliveCellPaint
+          : _deadCellPaint;
 
       Offset centerPoint = currentCell.point;
       Rect rect = Rect.fromCircle(
@@ -239,5 +251,7 @@ class GameOfLifePainter extends CustomPainter {
   }
 
   @override
-  bool shouldRepaint(GameOfLifePainter oldDelegate) => true;
+  bool shouldRepaint(GameOfLifePainter oldDelegate) {
+    return true;
+  }
 }

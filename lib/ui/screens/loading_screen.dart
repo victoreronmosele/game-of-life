@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:game_of_life_playground/data/app_strings.dart';
 import 'package:game_of_life_playground/ui/data/app_colors.dart';
+import 'package:game_of_life_playground/ui/data/app_fonts.dart';
 
 class LoadingScreen extends StatefulWidget {
   LoadingScreen({
@@ -35,13 +36,6 @@ class _LoadingScreenState extends State<LoadingScreen>
     _slideController =
         AnimationController(vsync: this, duration: _slideDuration);
     _boxBackgroundColor = Colors.black;
-    _baseTextStyle = TextStyle(fontSize: 48, fontWeight: FontWeight.bold, fontFamily: 'Comic Sans');
-    _strokeTextStyle = _baseTextStyle.copyWith(
-      foreground: Paint()
-        ..style = PaintingStyle.stroke
-        ..strokeWidth = 1
-        ..color = AppColors.hackerGreen,
-    );
     _loadingText = AppStrings.loadingMessage.toUpperCase();
 
     _slideController.addListener(() {
@@ -68,8 +62,10 @@ class _LoadingScreenState extends State<LoadingScreen>
     final screenHeight = MediaQuery.of(context).size.height;
     final screenWidth = MediaQuery.of(context).size.width;
 
-    _baseTextStyle =
-        TextStyle(fontSize: screenWidth / 10, fontWeight: FontWeight.bold);
+    _baseTextStyle = TextStyle(
+        fontSize: screenWidth / 10,
+        fontWeight: FontWeight.bold,
+        fontFamily: AppFonts.largeFriendLetters);
     _strokeTextStyle = _baseTextStyle.copyWith(
       foreground: Paint()
         ..style = PaintingStyle.stroke
