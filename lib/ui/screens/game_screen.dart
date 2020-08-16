@@ -15,7 +15,7 @@ class GameScreen extends StatefulWidget {
 class _GameScreenState extends State<GameScreen>
     with SingleTickerProviderStateMixin {
   final double _screenPadding = 10.0;
-  final int _numberOfBoxRows = 50;
+  final int _numberOfBoxRows = 20;
   final Duration _interval = Duration(milliseconds: 500);
 
   GlobalKey _customPaintKey = GlobalKey();
@@ -188,14 +188,16 @@ class _GameScreenState extends State<GameScreen>
                 child: Container(
                   color: AppColors.black,
                   child: RepaintBoundary(
-                    child: CustomPaint(
-                      key: _customPaintKey,
-                      painter: GameOfLifePainter(
-                          padding: 2 * _screenPadding,
-                          numberOfBoxRows: _numberOfBoxRows,
-                          listOfCells: _listOfCells,
-                          boxHeightDimension: _boxHeightDimension),
-                      child: Container(),
+                    child: Center(
+                      child: CustomPaint(
+                        key: _customPaintKey,
+                        painter: GameOfLifePainter(
+                            padding: 2 * _screenPadding,
+                            numberOfBoxRows: _numberOfBoxRows,
+                            listOfCells: _listOfCells,
+                            boxHeightDimension: _boxHeightDimension),
+                        child: Container(),
+                      ),
                     ),
                   ),
                 ),
@@ -247,14 +249,24 @@ class GameOfLifePainter extends CustomPainter {
 
   @override
   void paint(Canvas canvas, Size size) {
-    drawGrid(listOfCells, boxHeightDimension, canvas);
+    drawGrid(
+      listOfCells: listOfCells,
+      boxHeightDimension: boxHeightDimension,
+      canvas: canvas,
+      size: size,
+    );
   }
 
-  void drawGrid(
-      List<Cell> listOfCells, double boxHeightDimension, Canvas canvas) {
+  void drawGrid({
+    @required List<Cell> listOfCells,
+    @required double boxHeightDimension,
+    @required Canvas canvas,
+    @required Size size,
+  }) {
     for (var i = 0; i < listOfCells.length; i++) {
       Cell currentCell = listOfCells.elementAt(i);
-      final paint = currentCell.cellState == CellState.alive
+      CellState currentCellState = currentCell.cellState;
+      final paint = currentCellState == CellState.alive
           ? _aliveCellPaint
           : _deadCellPaint;
 
@@ -262,6 +274,28 @@ class GameOfLifePainter extends CustomPainter {
       Rect rect = Rect.fromCircle(
           center: centerPoint, radius: boxHeightDimension - padding);
       canvas.drawRect(rect, paint);
+
+      if (currentCellState == CellState.dead) {
+        final textStyle = TextStyle(
+          color: Colors.white,
+          fontSize: 8,
+        );
+        final textSpan = TextSpan(
+          text: '💀',
+          style: textStyle,
+        );
+        final textPainter = TextPainter(
+            text: textSpan,
+            textDirection: TextDirection.ltr,
+            textAlign: TextAlign.center);
+
+        textPainter.layout(
+          minWidth: 0,
+          maxWidth: size.width,
+        );
+
+        textPainter.paint(canvas, centerPoint);
+      }
     }
   }
 

@@ -153,6 +153,8 @@ class SlidePainter extends CustomPainter {
     final Rect rect = widgetOffset & widgetSize;
 
     canvas.drawRect(rect, wavePaint);
+
+    
   }
 
   @override
