@@ -35,7 +35,7 @@ class _LoadingScreenState extends State<LoadingScreen>
     _slideDuration = const Duration(milliseconds: 4000);
     _slideController =
         AnimationController(vsync: this, duration: _slideDuration);
-    _boxBackgroundColor = Colors.black;
+    _boxBackgroundColor = AppColors.black;
     _loadingText = AppStrings.loadingMessage.toUpperCase();
 
     _slideController.addListener(() {
@@ -74,7 +74,7 @@ class _LoadingScreenState extends State<LoadingScreen>
     );
 
     return Scaffold(
-      backgroundColor: Colors.black,
+      backgroundColor: AppColors.black,
       body: Center(
         child: SizedBox(
           height: screenHeight,

@@ -31,7 +31,7 @@ class _GameScreenState extends State<GameScreen>
   AnimationController _animationController;
   Animation<Color> _colorAnimation;
   final ColorTween _colorTween =
-      ColorTween(begin: Colors.green, end: Colors.red);
+      ColorTween(begin: AppColors.hackerGreen, end: AppColors.red);
 
   @override
   void initState() {
@@ -137,51 +137,66 @@ class _GameScreenState extends State<GameScreen>
   Widget build(BuildContext context) {
     return SafeArea(
       child: Scaffold(
-        backgroundColor: Colors.black,
+        backgroundColor: AppColors.black,
         appBar: AppBar(
           automaticallyImplyLeading: false,
-          backgroundColor: Colors.transparent,
+          backgroundColor: AppColors.transparent,
           elevation: 0.0,
-          actions: <Widget>[
-            Center(
-              child: Padding(
-                padding: const EdgeInsets.all(20.0),
-                child: Text(
-                  _generation.toString(),
-                  style: TextStyle(color: Colors.white),
+          title: Container(
+            decoration: BoxDecoration(
+              border: Border.all(color: AppColors.hackerGreen),
+            ),
+            child: Padding(
+              padding: const EdgeInsets.all(4.0),
+              child: Container(
+                decoration: BoxDecoration(
+                    border: Border.all(
+                  color: AppColors.hackerGreen,
+                )),
+                child: Padding(
+                  padding: const EdgeInsets.all(8.0),
+                  child: Center(
+                    child: Text(
+                      _generation.toString(),
+                      style: TextStyle(color: AppColors.white),
+                    ),
+                  ),
                 ),
               ),
-            )
-          ],
+            ),
+          ),
         ),
-        body: GestureDetector(
-          onVerticalDragUpdate: (DragUpdateDetails dragUpdateDetails) {
-            _dragUpdateDetails = dragUpdateDetails;
-          },
-          onVerticalDragEnd: (DragEndDetails dragEndDetails) {
-            if (_isVerticalDragDirectionNegative()) {
-              _minimizeGame = true;
-            } else {
-              _minimizeGame = false;
-            }
+        body: Padding(
+          padding: const EdgeInsets.all(8.0),
+          child: GestureDetector(
+            onVerticalDragUpdate: (DragUpdateDetails dragUpdateDetails) {
+              _dragUpdateDetails = dragUpdateDetails;
+            },
+            onVerticalDragEnd: (DragEndDetails dragEndDetails) {
+              if (_isVerticalDragDirectionNegative()) {
+                _minimizeGame = true;
+              } else {
+                _minimizeGame = false;
+              }
 
-            setState(() {});
-          },
-          child: Transform.scale(
-            scale: _minimizeGame ? 0.8 : 1.0,
-            child: Container(
-              color: _colorAnimation.value.withOpacity(0.2),
+              setState(() {});
+            },
+            child: Transform.scale(
+              scale: _minimizeGame ? 0.8 : 1.0,
               child: Container(
-                color: Colors.black,
-                child: RepaintBoundary(
-                  child: CustomPaint(
-                    key: _customPaintKey,
-                    painter: GameOfLifePainter(
-                        padding: 2 * _screenPadding,
-                        numberOfBoxRows: _numberOfBoxRows,
-                        listOfCells: _listOfCells,
-                        boxHeightDimension: _boxHeightDimension),
-                    child: Container(),
+                color: _colorAnimation.value.withOpacity(0.2),
+                child: Container(
+                  color: AppColors.black,
+                  child: RepaintBoundary(
+                    child: CustomPaint(
+                      key: _customPaintKey,
+                      painter: GameOfLifePainter(
+                          padding: 2 * _screenPadding,
+                          numberOfBoxRows: _numberOfBoxRows,
+                          listOfCells: _listOfCells,
+                          boxHeightDimension: _boxHeightDimension),
+                      child: Container(),
+                    ),
                   ),
                 ),
               ),
@@ -193,7 +208,7 @@ class _GameScreenState extends State<GameScreen>
           opacity: _minimizeGame ? 1.0 : 0.0,
           child: FloatingActionButton(
             backgroundColor: _colorAnimation.value,
-            foregroundColor: Colors.white,
+            foregroundColor: AppColors.white,
             mini: true,
             onPressed: _minimizeGame ? _toggleGameState : null,
             tooltip: 'Start Game',
