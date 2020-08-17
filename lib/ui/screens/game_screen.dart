@@ -14,14 +14,11 @@ class GameScreen extends StatefulWidget {
 
 class _GameScreenState extends State<GameScreen>
     with SingleTickerProviderStateMixin {
-  final double _screenPadding = 10.0;
-  final int _numberOfBoxRows = 20;
+  final double _screenPadding = 8.0;
+  final double _boxHeightDimension = 20;
   final Duration _interval = Duration(milliseconds: 500);
 
-  GlobalKey _customPaintKey = GlobalKey();
-  Size _customPaintSize;
   List<Cell> _listOfCells = [];
-  double _boxHeightDimension;
   int _generation = 0;
   bool _isGameRunning;
   bool _minimizeGame;
@@ -43,7 +40,6 @@ class _GameScreenState extends State<GameScreen>
 
     _isGameRunning = false;
     _minimizeGame = true;
-    WidgetsBinding.instance.addPostFrameCallback(_getCustomPaintSize);
     WidgetsBinding.instance.addPostFrameCallback(getListOfCells);
   }
 
@@ -100,25 +96,27 @@ class _GameScreenState extends State<GameScreen>
   }
 
   void getListOfCells(_) {
-    setState(() {
-      _boxHeightDimension = _customPaintSize.height / _numberOfBoxRows;
-    });
-
-    final radius = _boxHeightDimension / 2;
+    final int numberOfBoxRows =
+        MediaQuery.of(context).size.height ~/ _boxHeightDimension;
     final int numberOfBoxColumns =
-        (_customPaintSize.width - _screenPadding) ~/ _boxHeightDimension;
+        MediaQuery.of(context).size.width ~/ _boxHeightDimension;
 
-    Offset offset = Offset(radius, radius);
+    final double halfBoxHeightDimension = _boxHeightDimension / 2;
 
-    for (var i = 1; i < _numberOfBoxRows; i++) {
-      offset = Offset(radius, i * _boxHeightDimension);
+    for (var rowIndex = 1; rowIndex < numberOfBoxRows; rowIndex++) {
+      num dy = rowIndex * _boxHeightDimension;
+      for (var columnIndex = 0;
+          columnIndex < numberOfBoxColumns;
+          columnIndex++) {
+        num dx = columnIndex * _boxHeightDimension;
+        Offset offset = Offset(dx, dy);
 
-      for (var i = 0; i < numberOfBoxColumns; i++) {
-        var newOffsetDx = offset.dx + _boxHeightDimension;
-        var newOffsetDy = offset.dy;
-        offset = Offset(newOffsetDx, newOffsetDy);
         _listOfCells.add(Cell(
-            Random().nextBool() ? CellState.alive : CellState.dead, offset));
+            // Random().nextBool()
+            // ? CellState.alive :
+
+            CellState.dead,
+            offset));
       }
     }
 
@@ -127,47 +125,41 @@ class _GameScreenState extends State<GameScreen>
     });
   }
 
-  _getCustomPaintSize(_) {
-    final RenderBox containerRenderBox =
-        _customPaintKey.currentContext.findRenderObject();
-    _customPaintSize = containerRenderBox.size;
-  }
-
   @override
   Widget build(BuildContext context) {
     return SafeArea(
       child: Scaffold(
         backgroundColor: AppColors.black,
-        appBar: AppBar(
-          automaticallyImplyLeading: false,
-          backgroundColor: AppColors.transparent,
-          elevation: 0.0,
-          title: Container(
-            decoration: BoxDecoration(
-              border: Border.all(color: AppColors.hackerGreen),
-            ),
-            child: Padding(
-              padding: const EdgeInsets.all(4.0),
-              child: Container(
-                decoration: BoxDecoration(
-                    border: Border.all(
-                  color: AppColors.hackerGreen,
-                )),
-                child: Padding(
-                  padding: const EdgeInsets.all(8.0),
-                  child: Center(
-                    child: Text(
-                      _generation.toString(),
-                      style: TextStyle(color: AppColors.white),
-                    ),
-                  ),
-                ),
-              ),
-            ),
-          ),
-        ),
+        // appBar: AppBar(
+        //   automaticallyImplyLeading: false,
+        //   backgroundColor: AppColors.transparent,
+        //   elevation: 0.0,
+        //   title: Container(
+        //     decoration: BoxDecoration(
+        //       border: Border.all(color: AppColors.hackerGreen),
+        //     ),
+        //     child: Padding(
+        //       padding: const EdgeInsets.all(4.0),
+        //       child: Container(
+        //         decoration: BoxDecoration(
+        //             border: Border.all(
+        //           color: AppColors.hackerGreen,
+        //         )),
+        //         child: Padding(
+        //           padding: const EdgeInsets.all(8.0),
+        //           child: Center(
+        //             child: Text(
+        //               _generation.toString(),
+        //               style: TextStyle(color: AppColors.white),
+        //             ),
+        //           ),
+        //         ),
+        //       ),
+        //     ),
+        //   ),
+        // ),
         body: Padding(
-          padding: const EdgeInsets.all(8.0),
+          padding: const EdgeInsets.all(0.0),
           child: GestureDetector(
             onVerticalDragUpdate: (DragUpdateDetails dragUpdateDetails) {
               _dragUpdateDetails = dragUpdateDetails;
@@ -189,15 +181,7 @@ class _GameScreenState extends State<GameScreen>
                   color: AppColors.black,
                   child: RepaintBoundary(
                     child: Center(
-                      child: CustomPaint(
-                        key: _customPaintKey,
-                        painter: GameOfLifePainter(
-                            padding: 2 * _screenPadding,
-                            numberOfBoxRows: _numberOfBoxRows,
-                            listOfCells: _listOfCells,
-                            boxHeightDimension: _boxHeightDimension),
-                        child: Container(),
-                      ),
+                      child: _buildGridCells(),
                     ),
                   ),
                 ),
@@ -221,6 +205,23 @@ class _GameScreenState extends State<GameScreen>
     );
   }
 
+  Widget _buildGridCells() {
+    List<Widget> widgetList = [];
+
+    for (var i = 0; i < _listOfCells.length; i++) {
+      Cell cell = _listOfCells.elementAt(i);
+
+      widgetList.add(CustomPaint(
+        painter: GameOfLifePainter(cell: cell, boxHeight: _boxHeightDimension),
+        child: Container(),
+      ));
+    }
+
+    return Stack(
+      children: widgetList,
+    );
+  }
+
   IconData _buildPlayPauseButton() =>
       _isGameRunning ? Icons.pause : Icons.play_arrow;
 
@@ -228,11 +229,11 @@ class _GameScreenState extends State<GameScreen>
       _dragUpdateDetails.delta.direction.isNegative;
 }
 
+int i = 0;
+
 class GameOfLifePainter extends CustomPainter {
-  final double padding;
-  final int numberOfBoxRows;
-  final List<Cell> listOfCells;
-  final boxHeightDimension;
+  final Cell cell;
+  final double boxHeight;
 
   static final Paint _aliveCellPaint = Paint()
     ..color = AppColors.hackerGreen
@@ -241,61 +242,50 @@ class GameOfLifePainter extends CustomPainter {
     ..color = AppColors.red
     ..style = PaintingStyle.stroke;
 
-  GameOfLifePainter(
-      {@required this.padding,
-      @required this.numberOfBoxRows,
-      @required this.listOfCells,
-      @required this.boxHeightDimension});
+  GameOfLifePainter({@required this.cell, @required this.boxHeight});
 
   @override
   void paint(Canvas canvas, Size size) {
+    i++;
+    print(i);
     drawGrid(
-      listOfCells: listOfCells,
-      boxHeightDimension: boxHeightDimension,
       canvas: canvas,
       size: size,
     );
   }
 
   void drawGrid({
-    @required List<Cell> listOfCells,
-    @required double boxHeightDimension,
     @required Canvas canvas,
     @required Size size,
   }) {
-    for (var i = 0; i < listOfCells.length; i++) {
-      Cell currentCell = listOfCells.elementAt(i);
-      CellState currentCellState = currentCell.cellState;
-      final paint = currentCellState == CellState.alive
-          ? _aliveCellPaint
-          : _deadCellPaint;
+    CellState currentCellState = cell.cellState;
+    final paint =
+        currentCellState == CellState.alive ? _aliveCellPaint : _deadCellPaint;
 
-      Offset centerPoint = currentCell.point;
-      Rect rect = Rect.fromCircle(
-          center: centerPoint, radius: boxHeightDimension - padding);
-      canvas.drawRect(rect, paint);
+    Offset centerPoint = cell.point;
+    Rect rect = Rect.fromCircle(center: centerPoint, radius: boxHeight);
+    canvas.drawRect(rect, paint);
 
-      if (currentCellState == CellState.dead) {
-        final textStyle = TextStyle(
-          color: Colors.white,
-          fontSize: 8,
-        );
-        final textSpan = TextSpan(
-          text: '💀',
-          style: textStyle,
-        );
-        final textPainter = TextPainter(
-            text: textSpan,
-            textDirection: TextDirection.ltr,
-            textAlign: TextAlign.center);
+    if (currentCellState == CellState.dead) {
+      final textStyle = TextStyle(
+        color: Colors.white,
+        fontSize: 8,
+      );
+      final textSpan = TextSpan(
+        text: i.toString(),
+        style: textStyle,
+      );
+      final textPainter = TextPainter(
+          text: textSpan,
+          textDirection: TextDirection.ltr,
+          textAlign: TextAlign.center);
 
-        textPainter.layout(
-          minWidth: 0,
-          maxWidth: size.width,
-        );
+      textPainter.layout(
+        minWidth: 0,
+        maxWidth: size.width,
+      );
 
-        textPainter.paint(canvas, centerPoint);
-      }
+      textPainter.paint(canvas, centerPoint);
     }
   }
 
