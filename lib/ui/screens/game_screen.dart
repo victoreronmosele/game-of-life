@@ -12,34 +12,55 @@ class GameScreen extends StatefulWidget {
   _GameScreenState createState() => _GameScreenState();
 }
 
-class _GameScreenState extends State<GameScreen>
-    with SingleTickerProviderStateMixin {
+class _GameScreenState extends State<GameScreen> with TickerProviderStateMixin {
   final double _screenPadding = 8.0;
-  final double _boxHeightDimension = 20;
+  final double _boxHeightDimension = 20.0;
   final Duration _interval = Duration(milliseconds: 500);
 
   List<Cell> _listOfCells = [];
   int _generation = 0;
   bool _isGameRunning;
-  bool _minimizeGame;
+
   DragUpdateDetails _dragUpdateDetails;
   Timer _gameTimer;
 
-  AnimationController _animationController;
-  Animation<Color> _colorAnimation;
   final ColorTween _colorTween =
       ColorTween(begin: AppColors.hackerGreen, end: AppColors.red);
+  AnimationController _colorAnimationController;
+  Animation<Color> _colorAnimation;
+
+  final Tween<double> _scaleTween = Tween<double>(begin: 0.8, end: 1.0);
+  AnimationController _scaleAnimationController;
+  Animation<double> _scaleAnimation;
+
+  //Defaults to true
+  ValueNotifier<bool> _minimizeGame = ValueNotifier(true);
 
   @override
   void initState() {
     super.initState();
 
-    _animationController =
+    _colorAnimationController =
         AnimationController(vsync: this, duration: Duration(seconds: 1));
-    _colorAnimation = _colorTween.animate(_animationController);
+    _colorAnimation = _colorTween.animate(_colorAnimationController);
+
+    _scaleAnimationController =
+        AnimationController(vsync: this, duration: Duration(seconds: 1));
+    _scaleAnimation = _scaleTween.animate(_scaleAnimationController);
+    _scaleAnimation.addStatusListener((AnimationStatus animationStatus) {
+      if (animationStatus == AnimationStatus.completed) {
+        _minimizeGame.value = false;
+      }
+
+      if (animationStatus == AnimationStatus.dismissed) {
+        _minimizeGame.value = true;
+      }
+    });
+
+    _scaleAnimationController.reverse();
 
     _isGameRunning = false;
-    _minimizeGame = true;
+
     WidgetsBinding.instance.addPostFrameCallback(getListOfCells);
   }
 
@@ -47,7 +68,7 @@ class _GameScreenState extends State<GameScreen>
     if (_isGameRunning) {
       _gameTimer?.cancel();
 
-      await _animationController.reverse();
+      await _colorAnimationController.reverse();
 
       setState(() {
         _isGameRunning = false;
@@ -58,7 +79,7 @@ class _GameScreenState extends State<GameScreen>
             Timer.periodic(_interval, (Timer t) => _runThroughGeneration());
       }
 
-      await _animationController.forward();
+      await _colorAnimationController.forward();
 
       setState(() {
         _isGameRunning = true;
@@ -101,8 +122,6 @@ class _GameScreenState extends State<GameScreen>
     final int numberOfBoxColumns =
         MediaQuery.of(context).size.width ~/ _boxHeightDimension;
 
-    final double halfBoxHeightDimension = _boxHeightDimension / 2;
-
     for (var rowIndex = 1; rowIndex < numberOfBoxRows; rowIndex++) {
       num dy = rowIndex * _boxHeightDimension;
       for (var columnIndex = 0;
@@ -112,9 +131,7 @@ class _GameScreenState extends State<GameScreen>
         Offset offset = Offset(dx, dy);
 
         _listOfCells.add(Cell(
-            // Random().nextBool()
-            // ? CellState.alive :
-
+            // Random().nextBool() ? CellState.alive :
             CellState.dead,
             offset));
       }
@@ -130,34 +147,34 @@ class _GameScreenState extends State<GameScreen>
     return SafeArea(
       child: Scaffold(
         backgroundColor: AppColors.black,
-        // appBar: AppBar(
-        //   automaticallyImplyLeading: false,
-        //   backgroundColor: AppColors.transparent,
-        //   elevation: 0.0,
-        //   title: Container(
-        //     decoration: BoxDecoration(
-        //       border: Border.all(color: AppColors.hackerGreen),
-        //     ),
-        //     child: Padding(
-        //       padding: const EdgeInsets.all(4.0),
-        //       child: Container(
-        //         decoration: BoxDecoration(
-        //             border: Border.all(
-        //           color: AppColors.hackerGreen,
-        //         )),
-        //         child: Padding(
-        //           padding: const EdgeInsets.all(8.0),
-        //           child: Center(
-        //             child: Text(
-        //               _generation.toString(),
-        //               style: TextStyle(color: AppColors.white),
-        //             ),
-        //           ),
-        //         ),
-        //       ),
-        //     ),
-        //   ),
-        // ),
+        appBar: AppBar(
+          automaticallyImplyLeading: false,
+          backgroundColor: AppColors.transparent,
+          elevation: 0.0,
+          title: Container(
+            decoration: BoxDecoration(
+              border: Border.all(color: AppColors.hackerGreen),
+            ),
+            child: Padding(
+              padding: const EdgeInsets.all(4.0),
+              child: Container(
+                decoration: BoxDecoration(
+                    border: Border.all(
+                  color: AppColors.hackerGreen,
+                )),
+                child: Padding(
+                  padding: const EdgeInsets.all(8.0),
+                  child: Center(
+                    child: Text(
+                      _generation.toString(),
+                      style: TextStyle(color: AppColors.white),
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          ),
+        ),
         body: Padding(
           padding: const EdgeInsets.all(0.0),
           child: GestureDetector(
@@ -166,15 +183,15 @@ class _GameScreenState extends State<GameScreen>
             },
             onVerticalDragEnd: (DragEndDetails dragEndDetails) {
               if (_isVerticalDragDirectionNegative()) {
-                _minimizeGame = true;
+                _scaleAnimationController.reverse();
               } else {
-                _minimizeGame = false;
+                _scaleAnimationController.forward();
               }
-
-              setState(() {});
             },
-            child: Transform.scale(
-              scale: _minimizeGame ? 0.8 : 1.0,
+            child: AnimatedBuilder(
+              animation: _scaleAnimation,
+              builder: (BuildContext context, child) =>
+                  Transform.scale(scale: _scaleAnimation.value, child: child),
               child: Container(
                 color: _colorAnimation.value.withOpacity(0.2),
                 child: Container(
@@ -189,17 +206,22 @@ class _GameScreenState extends State<GameScreen>
             ),
           ),
         ),
-        floatingActionButton: AnimatedOpacity(
-          duration: Duration(seconds: 1),
-          opacity: _minimizeGame ? 1.0 : 0.0,
-          child: FloatingActionButton(
-            backgroundColor: _colorAnimation.value,
-            foregroundColor: AppColors.white,
-            mini: true,
-            onPressed: _minimizeGame ? _toggleGameState : null,
-            tooltip: 'Start Game',
-            child: Icon(_buildPlayPauseButton()),
-          ),
+        floatingActionButton: ValueListenableBuilder(
+          builder: (BuildContext context, _, Widget child) {
+            return AnimatedOpacity(
+              duration: Duration(seconds: 1),
+              opacity: _minimizeGame.value ? 1.0 : 0.0,
+              child: FloatingActionButton(
+                backgroundColor: _colorAnimation.value,
+                foregroundColor: AppColors.white,
+                mini: true,
+                onPressed: _minimizeGame.value ? _toggleGameState : null,
+                tooltip: 'Start Game',
+                child: Icon(_buildPlayPauseButton()),
+              ),
+            );
+          },
+          valueListenable: _minimizeGame,
         ),
       ),
     );
@@ -231,6 +253,7 @@ class _GameScreenState extends State<GameScreen>
 
 int i = 0;
 
+@immutable
 class GameOfLifePainter extends CustomPainter {
   final Cell cell;
   final double boxHeight;
@@ -242,28 +265,24 @@ class GameOfLifePainter extends CustomPainter {
     ..color = AppColors.red
     ..style = PaintingStyle.stroke;
 
-  GameOfLifePainter({@required this.cell, @required this.boxHeight});
+  const GameOfLifePainter({@required this.cell, @required this.boxHeight});
 
   @override
   void paint(Canvas canvas, Size size) {
     i++;
-    print(i);
-    drawGrid(
-      canvas: canvas,
-      size: size,
-    );
+    _drawBox(canvas: canvas, size: size, cell: cell);
   }
 
-  void drawGrid({
-    @required Canvas canvas,
-    @required Size size,
-  }) {
-    CellState currentCellState = cell.cellState;
+  void _drawBox(
+      {@required Canvas canvas, @required Size size, @required Cell cell}) {
+    final CellState currentCellState = cell.cellState;
     final paint =
         currentCellState == CellState.alive ? _aliveCellPaint : _deadCellPaint;
 
-    Offset centerPoint = cell.point;
-    Rect rect = Rect.fromCircle(center: centerPoint, radius: boxHeight);
+    final Offset cellPoint = cell.point;
+    final Offset centerPoint = Offset(cellPoint.dx, cellPoint.dy);
+
+    Rect rect = Rect.fromCircle(center: centerPoint, radius: boxHeight / 2);
     canvas.drawRect(rect, paint);
 
     if (currentCellState == CellState.dead) {
@@ -272,7 +291,7 @@ class GameOfLifePainter extends CustomPainter {
         fontSize: 8,
       );
       final textSpan = TextSpan(
-        text: i.toString(),
+        text: '💀',
         style: textStyle,
       );
       final textPainter = TextPainter(
@@ -285,12 +304,23 @@ class GameOfLifePainter extends CustomPainter {
         maxWidth: size.width,
       );
 
-      textPainter.paint(canvas, centerPoint);
+      Offset textOffset = Offset(
+          centerPoint.dx - boxHeight / 4, centerPoint.dy - boxHeight / 4);
+
+      textPainter.paint(canvas, textOffset);
     }
   }
 
+  bool _isCellStateChanged({@required CellState oldCellState}) =>
+      oldCellState != cell.cellState;
+
   @override
   bool shouldRepaint(GameOfLifePainter oldDelegate) {
-    return true;
+    bool isCellStateChanged =
+        _isCellStateChanged(oldCellState: oldDelegate.cell.cellState);
+    print('old state ==> ${oldDelegate.cell.cellState}');
+    print('new state ==> ${cell.cellState}');
+    print(isCellStateChanged);
+    return true; //isCellStateChanged;
   }
 }
