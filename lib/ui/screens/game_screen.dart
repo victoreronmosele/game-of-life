@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:math';
 
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:game_of_life_playground/models/cell.dart';
 import 'package:game_of_life_playground/models/cell_state.dart';
@@ -17,9 +18,17 @@ class _GameScreenState extends State<GameScreen> with TickerProviderStateMixin {
   final double _boxHeightDimension = 20.0;
   final Duration _interval = Duration(milliseconds: 500);
 
-  List<Cell> _listOfCells = [];
-  int _generation = 0;
-  bool _isGameRunning;
+  ///Defaults to true
+  final ValueNotifier<bool> _minimizeGame = ValueNotifier(true);
+
+  ///Defaults to false
+  final ValueNotifier<bool> _isGameRunning = ValueNotifier(false);
+
+  ///Defaults to 0
+  final ValueNotifier<int> _generation = ValueNotifier(0);
+
+  ///Defaults to []
+  final ValueNotifier<List<Cell>> _listOfCells = ValueNotifier([]);
 
   DragUpdateDetails _dragUpdateDetails;
   Timer _gameTimer;
@@ -32,9 +41,6 @@ class _GameScreenState extends State<GameScreen> with TickerProviderStateMixin {
   final Tween<double> _scaleTween = Tween<double>(begin: 0.8, end: 1.0);
   AnimationController _scaleAnimationController;
   Animation<double> _scaleAnimation;
-
-  //Defaults to true
-  ValueNotifier<bool> _minimizeGame = ValueNotifier(true);
 
   @override
   void initState() {
@@ -59,20 +65,14 @@ class _GameScreenState extends State<GameScreen> with TickerProviderStateMixin {
 
     _scaleAnimationController.reverse();
 
-    _isGameRunning = false;
-
     WidgetsBinding.instance.addPostFrameCallback(getListOfCells);
   }
 
   Future<void> _toggleGameState() async {
-    if (_isGameRunning) {
+    if (_isGameRunning.value) {
       _gameTimer?.cancel();
-
       await _colorAnimationController.reverse();
-
-      setState(() {
-        _isGameRunning = false;
-      });
+      _isGameRunning.value = false;
     } else {
       if (_gameTimer == null || !_gameTimer.isActive) {
         _gameTimer =
@@ -80,40 +80,39 @@ class _GameScreenState extends State<GameScreen> with TickerProviderStateMixin {
       }
 
       await _colorAnimationController.forward();
-
-      setState(() {
-        _isGameRunning = true;
-      });
+      _isGameRunning.value = true;
     }
   }
 
   _runThroughGeneration() {
-    _listOfCells.forEach((cell) {
-      List<Offset> listOfNeighboringPoints =
+    _listOfCells.value = _listOfCells.value.map((cell) {
+      final List<Offset> listOfNeighboringPoints =
           cell.getNeighborPoints(_boxHeightDimension);
 
-      List<Cell> listOfNeigboringCells = _listOfCells.where((cell) {
+      final List<Cell> listOfNeigboringCells = _listOfCells.value.where((cell) {
         return listOfNeighboringPoints.contains(cell.point);
       }).toList();
 
-      _reactToNeighbors(cell, listOfNeigboringCells);
-    });
+      cell.cellState = _getNewCellState(
+          cell: cell, listOfNeighboringCells: listOfNeigboringCells);
 
-    setState(() {
-      _generation++;
-    });
+      return cell;
+    }).toList();
+
+    _generation.value++;
   }
 
-  _reactToNeighbors(Cell cell, List<Cell> listOfNeighboringCells) {
-    int numberOfLivingNeighbors = listOfNeighboringCells
+  CellState _getNewCellState(
+      {@required Cell cell, @required List<Cell> listOfNeighboringCells}) {
+    final int numberOfLivingNeighbors = listOfNeighboringCells
         .where((_) => _.cellState == CellState.alive)
         .length;
 
-    CellState newCellState = Rule().getNewCellState(
+    final CellState newCellState = Rule().getNewCellState(
         initialCellState: cell.cellState,
         numberOfLivingNeighbors: numberOfLivingNeighbors);
 
-    cell.cellState = newCellState;
+    return newCellState;
   }
 
   void getListOfCells(_) {
@@ -130,16 +129,14 @@ class _GameScreenState extends State<GameScreen> with TickerProviderStateMixin {
         num dx = columnIndex * _boxHeightDimension;
         Offset offset = Offset(dx, dy);
 
-        _listOfCells.add(Cell(
-            // Random().nextBool() ? CellState.alive :
-            CellState.dead,
-            offset));
+        _listOfCells.value = [
+          ..._listOfCells.value,
+          Cell(Random().nextBool() ? CellState.alive : CellState.dead, offset)
+        ];
       }
     }
 
-    setState(() {
-      _generation++;
-    });
+    _generation.value++;
   }
 
   @override
@@ -165,9 +162,15 @@ class _GameScreenState extends State<GameScreen> with TickerProviderStateMixin {
                 child: Padding(
                   padding: const EdgeInsets.all(8.0),
                   child: Center(
-                    child: Text(
-                      _generation.toString(),
-                      style: TextStyle(color: AppColors.white),
+                    child: ValueListenableBuilder(
+                      valueListenable: _generation,
+                      builder: (BuildContext context, int generationListenable,
+                          Widget child) {
+                        return Text(
+                          generationListenable.toString(),
+                          style: TextStyle(color: AppColors.white),
+                        );
+                      },
                     ),
                   ),
                 ),
@@ -198,7 +201,13 @@ class _GameScreenState extends State<GameScreen> with TickerProviderStateMixin {
                   color: AppColors.black,
                   child: RepaintBoundary(
                     child: Center(
-                      child: _buildGridCells(),
+                      child: ValueListenableBuilder(
+                          valueListenable: _listOfCells,
+                          builder: (BuildContext buildContext,
+                              List<Cell> listOfCellsListenable, Widget child) {
+                            return _buildGridCells(
+                                listOfCells: listOfCellsListenable);
+                          }),
                     ),
                   ),
                 ),
@@ -207,17 +216,23 @@ class _GameScreenState extends State<GameScreen> with TickerProviderStateMixin {
           ),
         ),
         floatingActionButton: ValueListenableBuilder(
-          builder: (BuildContext context, _, Widget child) {
+          builder: (BuildContext context, bool gameMinimizedStateListenable,
+              Widget child) {
             return AnimatedOpacity(
               duration: Duration(seconds: 1),
-              opacity: _minimizeGame.value ? 1.0 : 0.0,
+              opacity: gameMinimizedStateListenable ? 1.0 : 0.0,
               child: FloatingActionButton(
                 backgroundColor: _colorAnimation.value,
                 foregroundColor: AppColors.white,
                 mini: true,
-                onPressed: _minimizeGame.value ? _toggleGameState : null,
+                onPressed:
+                    gameMinimizedStateListenable ? _toggleGameState : null,
                 tooltip: 'Start Game',
-                child: Icon(_buildPlayPauseButton()),
+                child: ValueListenableBuilder(
+                    valueListenable: _isGameRunning,
+                    builder: (_, gameRunningStateListenable, ___) => Icon(
+                        _buildPlayPauseButton(
+                            isGameRunning: gameRunningStateListenable))),
               ),
             );
           },
@@ -227,16 +242,20 @@ class _GameScreenState extends State<GameScreen> with TickerProviderStateMixin {
     );
   }
 
-  Widget _buildGridCells() {
+  Widget _buildGridCells({@required List<Cell> listOfCells}) {
     List<Widget> widgetList = [];
 
-    for (var i = 0; i < _listOfCells.length; i++) {
-      Cell cell = _listOfCells.elementAt(i);
+    for (var i = 0; i < listOfCells.length; i++) {
+      Cell cell = listOfCells.elementAt(i);
 
-      widgetList.add(CustomPaint(
-        painter: GameOfLifePainter(cell: cell, boxHeight: _boxHeightDimension),
-        child: Container(),
-      ));
+      widgetList.add(
+        CustomPaint(
+          key: ValueKey(i),
+          painter: GameOfLifePainter(
+              key: ValueKey('00'), cell: cell, boxHeight: _boxHeightDimension),
+          child: Container(),
+        ),
+      );
     }
 
     return Stack(
@@ -244,8 +263,8 @@ class _GameScreenState extends State<GameScreen> with TickerProviderStateMixin {
     );
   }
 
-  IconData _buildPlayPauseButton() =>
-      _isGameRunning ? Icons.pause : Icons.play_arrow;
+  IconData _buildPlayPauseButton({@required bool isGameRunning}) =>
+      isGameRunning ? Icons.pause : Icons.play_arrow;
 
   bool _isVerticalDragDirectionNegative() =>
       _dragUpdateDetails.delta.direction.isNegative;
@@ -265,7 +284,8 @@ class GameOfLifePainter extends CustomPainter {
     ..color = AppColors.red
     ..style = PaintingStyle.stroke;
 
-  const GameOfLifePainter({@required this.cell, @required this.boxHeight});
+  const GameOfLifePainter(
+      {@required Key key, @required this.cell, @required this.boxHeight});
 
   @override
   void paint(Canvas canvas, Size size) {
@@ -311,16 +331,10 @@ class GameOfLifePainter extends CustomPainter {
     }
   }
 
-  bool _isCellStateChanged({@required CellState oldCellState}) =>
-      oldCellState != cell.cellState;
-
   @override
   bool shouldRepaint(GameOfLifePainter oldDelegate) {
-    bool isCellStateChanged =
-        _isCellStateChanged(oldCellState: oldDelegate.cell.cellState);
-    print('old state ==> ${oldDelegate.cell.cellState}');
-    print('new state ==> ${cell.cellState}');
-    print(isCellStateChanged);
-    return true; //isCellStateChanged;
+    print(oldDelegate.cell.point == cell.point);
+
+    return true;
   }
 }
