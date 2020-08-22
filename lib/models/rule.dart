@@ -5,9 +5,6 @@ class Rule {
   CellState getNewCellState(
       {@required CellState initialCellState,
       @required int numberOfLivingNeighbors}) {
-
-
-        
     CellState newCellState;
 
     if (numberOfLivingNeighbors == 3) {
