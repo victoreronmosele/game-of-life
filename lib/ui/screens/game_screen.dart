@@ -15,7 +15,6 @@ class GameScreen extends StatefulWidget {
 }
 
 class _GameScreenState extends State<GameScreen> with TickerProviderStateMixin {
-  final double _screenPadding = 8.0;
   final double _boxHeightDimension = 20.0;
   final Duration _interval = Duration(milliseconds: 500);
 
@@ -125,18 +124,20 @@ class _GameScreenState extends State<GameScreen> with TickerProviderStateMixin {
   }
 
   void getListOfCells(_) {
-    final int numberOfBoxRows =
-        MediaQuery.of(context).size.height ~/ _boxHeightDimension;
-    final int numberOfBoxColumns =
-        MediaQuery.of(context).size.width ~/ _boxHeightDimension;
+    final int numberOfBoxRows = _gridHeight ~/ _boxHeightDimension;
+    final int numberOfBoxColumns = _gridWidth ~/ _boxHeightDimension;
+
+    final double extraHorizontalSpace = _gridWidth % _boxHeightDimension;
+    final double extraHorizontalSpacePerBox = extraHorizontalSpace / numberOfBoxColumns;
+    final double halfBoxHeight = _boxHeightDimension / 2;
 
     for (var rowIndex = 1; rowIndex < numberOfBoxRows; rowIndex++) {
       num dy = rowIndex * _boxHeightDimension;
       for (var columnIndex = 0;
           columnIndex < numberOfBoxColumns;
           columnIndex++) {
-        num dx = columnIndex * _boxHeightDimension;
-        Offset offset = Offset(dx, dy);
+        num dx = (columnIndex * _boxHeightDimension);
+        Offset offset = Offset(dx + halfBoxHeight + extraHorizontalSpacePerBox, dy - halfBoxHeight);
 
         _listOfCells.value = [
           ..._listOfCells.value,
@@ -148,112 +149,115 @@ class _GameScreenState extends State<GameScreen> with TickerProviderStateMixin {
     _generation.value++;
   }
 
+  double get _screenHeight =>
+      MediaQuery.of(context).removePadding(removeTop: true).size.height;
+  double get _screenWidth => MediaQuery.of(context).size.width;
+  double get _optionBarHeight => _screenHeight * 0.10;
+  double get _gridHeight => _screenHeight - (_optionBarHeight * 2);
+  double get _gridWidth => _screenWidth;
+
   @override
   Widget build(BuildContext context) {
     return SafeArea(
       child: Scaffold(
         backgroundColor: AppColors.black,
-        appBar: AppBar(
-          automaticallyImplyLeading: false,
-          backgroundColor: AppColors.transparent,
-          elevation: 0.0,
-          title: Container(
+        body: Column(
+          children: [
+            _buildGenerationCountStatusBar(),
+            Expanded(
+              child: _buildGrid(),
+            ),
+            _buildStartStopButton(),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildStartStopButton() {
+    return SizedBox(
+      height: _optionBarHeight,
+      child: Container(
+        decoration: BoxDecoration(
+          border: Border.all(color: AppColors.hackerGreen),
+        ),
+        child: Padding(
+          padding: const EdgeInsets.all(4.0),
+          child: Container(
             decoration: BoxDecoration(
-              border: Border.all(color: AppColors.hackerGreen),
-            ),
-            child: Padding(
-              padding: const EdgeInsets.all(4.0),
-              child: Container(
-                decoration: BoxDecoration(
-                    border: Border.all(
-                  color: AppColors.hackerGreen,
-                )),
-                child: Padding(
-                  padding: const EdgeInsets.all(8.0),
-                  child: Center(
-                    child: ValueListenableBuilder(
-                      valueListenable: _generation,
-                      builder: (BuildContext context, int generationListenable,
-                          Widget child) {
-                        return Text(
-                          generationListenable.toString(),
-                          style: TextStyle(color: AppColors.white),
-                        );
-                      },
-                    ),
-                  ),
-                ),
-              ),
-            ),
-          ),
-        ),
-        body: Padding(
-          padding: const EdgeInsets.all(0.0),
-          child: GestureDetector(
-            onVerticalDragUpdate: (DragUpdateDetails dragUpdateDetails) {
-              _dragUpdateDetails = dragUpdateDetails;
-            },
-            onVerticalDragEnd: (DragEndDetails dragEndDetails) {
-              if (_isVerticalDragDirectionNegative()) {
-                _scaleAnimationController.reverse();
-              } else {
-                _scaleAnimationController.forward();
-              }
-            },
-            child: AnimatedBuilder(
-              animation: _scaleAnimation,
-              builder: (BuildContext context, child) =>
-                  Transform.scale(scale: _scaleAnimation.value, child: child),
-              child: Container(
-                color: _colorAnimation.value.withOpacity(0.2),
-                child: Container(
-                  color: AppColors.black,
-                  child: RepaintBoundary(
-                    child: Center(
-                      child: ValueListenableBuilder(
-                          valueListenable: _listOfCells,
-                          builder: (BuildContext buildContext,
-                              List<Cell> listOfCellsListenable, Widget child) {
-                            if (listOfCellsListenable.isEmpty) {
-                              return CircularProgressIndicator();
-                            }
-                            return _buildGridCells(
-                                listOfCells: listOfCellsListenable);
-                          }),
-                    ),
-                  ),
-                ),
-              ),
-            ),
-          ),
-        ),
-        floatingActionButton: ValueListenableBuilder(
-          builder: (BuildContext context, bool gameMinimizedStateListenable,
-              Widget child) {
-            return AnimatedOpacity(
-              duration: Duration(seconds: 1),
-              opacity: gameMinimizedStateListenable ? 1.0 : 0.0,
-              child: AnimatedBuilder(
-                animation: _colorAnimation,
-                builder: (BuildContext context, Widget child) =>
-                    FloatingActionButton(
-                  backgroundColor: _colorAnimation.value,
-                  foregroundColor: AppColors.white,
-                  mini: true,
-                  onPressed:
-                      gameMinimizedStateListenable ? _toggleGameState : null,
-                  tooltip: 'Start Game',
-                  child: child,
-                ),
+                border: Border.all(
+              color: AppColors.hackerGreen,
+            )),
+            child: InkWell(
+              onTap: _toggleGameState,
+              child: Center(
                 child: ValueListenableBuilder(
-                    valueListenable: _isGameRunning,
-                    builder: (_, gameRunningStateListenable, ___) => Icon(
-                        _buildPlayPauseButton(
-                            isGameRunning: gameRunningStateListenable))),
+                  valueListenable: _isGameRunning,
+                  builder: (_, gameRunningStateListenable, ___) => Text(
+                    gameRunningStateListenable ? 'Run' : 'Start',
+                    style: TextStyle(
+                      color: Colors.white,
+                    ),
+                  ),
+                ),
               ),
-            );
-          },
-          valueListenable: _minimizeGame,
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildGrid() {
+    return Center(
+      child: RepaintBoundary(
+        child: Center(
+          child: ValueListenableBuilder(
+              valueListenable: _listOfCells,
+              builder: (BuildContext buildContext,
+                  List<Cell> listOfCellsListenable, Widget child) {
+                if (listOfCellsListenable.isEmpty) {
+                  return CircularProgressIndicator();
+                }
+                return _buildGridCells(
+                    listOfCells: listOfCellsListenable,
+                    gridHeight: _gridHeight);
+              }),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildGenerationCountStatusBar() {
+    return SizedBox(
+      height: _optionBarHeight,
+      child: Container(
+        decoration: BoxDecoration(
+          border: Border.all(color: AppColors.hackerGreen),
+        ),
+        child: Padding(
+          padding: const EdgeInsets.all(4.0),
+          child: Container(
+            decoration: BoxDecoration(
+                border: Border.all(
+              color: AppColors.hackerGreen,
+            )),
+            child: Padding(
+              padding: const EdgeInsets.all(8.0),
+              child: Center(
+                child: ValueListenableBuilder(
+                  valueListenable: _generation,
+                  builder: (BuildContext context, int generationListenable,
+                      Widget child) {
+                    return Text(
+                      generationListenable.toString(),
+                      style: TextStyle(color: AppColors.white),
+                    );
+                  },
+                ),
+              ),
+            ),
+          ),
         ),
       ),
     );
@@ -278,19 +282,14 @@ class _GameScreenState extends State<GameScreen> with TickerProviderStateMixin {
     return widgetList;
   }
 
-  Widget _buildGridCells({@required List<Cell> listOfCells}) {
+  Widget _buildGridCells(
+      {@required List<Cell> listOfCells, @required double gridHeight}) {
     List<Widget> widgetList = _getCellWidgetList(listOfCells: listOfCells);
 
     return Stack(
       children: widgetList,
     );
   }
-
-  IconData _buildPlayPauseButton({@required bool isGameRunning}) =>
-      isGameRunning ? Icons.pause : Icons.play_arrow;
-
-  bool _isVerticalDragDirectionNegative() =>
-      _dragUpdateDetails.delta.direction.isNegative;
 }
 
 int i = 0;
@@ -323,9 +322,11 @@ class GameOfLifePainter extends CustomPainter {
         currentCellState == CellState.alive ? _aliveCellPaint : _deadCellPaint;
 
     final Offset cellPoint = cell.point;
-    final Offset centerPoint = Offset(cellPoint.dx, cellPoint.dy);
+    final Offset centerPoint =
+        Offset(cellPoint.dx, cellPoint.dy );
+    final double halfBoxHeight = boxHeight / 2;
 
-    Rect rect = Rect.fromCircle(center: centerPoint, radius: boxHeight / 2);
+    Rect rect = Rect.fromCircle(center: centerPoint, radius: halfBoxHeight);
     canvas.drawRect(rect, paint);
 
     if (currentCellState == CellState.dead) {
