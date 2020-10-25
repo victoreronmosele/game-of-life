@@ -7,4 +7,4 @@ This is a simple implementation of [Conway's Game of Life](https://en.wikipedia.
 Implementation of Game of Life's Rules in Dart from [Rosetta Code](https://rosettacode.org/wiki/Conway%27s_Game_of_Life#Dart).
 
 ## Gif
-![Gif](https://i.imgur.com/Jj5yFPN.gif)
+![Gif](https://i.imgur.com/UmOZUeZ.gif)
