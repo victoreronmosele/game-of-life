@@ -1,10 +1,11 @@
 import 'dart:async';
 import 'dart:math';
 
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/scheduler.dart';
 import 'package:game_of_life_playground/models/cell.dart';
 import 'package:game_of_life_playground/models/cell_state.dart';
-import 'package:game_of_life_playground/data/app_strings.dart';
 import 'package:game_of_life_playground/models/rule.dart';
 import 'package:game_of_life_playground/ui/data/app_colors.dart';
 
@@ -13,176 +14,378 @@ class GameScreen extends StatefulWidget {
   _GameScreenState createState() => _GameScreenState();
 }
 
-class _GameScreenState extends State<GameScreen> {
-  GlobalKey _customPaintKey = GlobalKey();
-  final double _screenPadding = 10.0;
-  final int _numberOfBoxRows = 50;
-  Size _customPaintSize;
-  List<Cell> _listOfCells = [];
-  double _boxHeightDimension;
-  int generation = 0;
-  Duration interval;
+class _GameScreenState extends State<GameScreen> with TickerProviderStateMixin {
+  final double _boxHeightDimension = 20.0;
+  final Duration _interval = Duration(milliseconds: 500);
+
+  ///Defaults to true
+  final ValueNotifier<bool> _minimizeGame = ValueNotifier(true);
+
+  ///Defaults to false
+  final ValueNotifier<bool> _isGameRunning = ValueNotifier(false);
+
+  ///Defaults to 0
+  final ValueNotifier<int> _generation = ValueNotifier(0);
+
+  ///Defaults to []
+  final ValueNotifier<List<Cell>> _listOfCells = ValueNotifier([]);
+
+  DragUpdateDetails _dragUpdateDetails;
+  Timer _gameTimer;
+
+  final ColorTween _colorTween =
+      ColorTween(begin: AppColors.hackerGreen, end: AppColors.red);
+  AnimationController _colorAnimationController;
+  Animation<Color> _colorAnimation;
+
+  final Tween<double> _scaleTween = Tween<double>(begin: 0.8, end: 1.0);
+  AnimationController _scaleAnimationController;
+  Animation<double> _scaleAnimation;
 
   @override
   void initState() {
     super.initState();
-    WidgetsBinding.instance.addPostFrameCallback(_getCustomPaintSize);
+
+    _colorAnimationController =
+        AnimationController(vsync: this, duration: Duration(seconds: 1));
+    _colorAnimation = _colorTween.animate(_colorAnimationController);
+
+    _scaleAnimationController =
+        AnimationController(vsync: this, duration: Duration(seconds: 1));
+    _scaleAnimation = _scaleTween.animate(_scaleAnimationController);
+    _scaleAnimation.addStatusListener((AnimationStatus animationStatus) {
+      if (animationStatus == AnimationStatus.completed) {
+        _minimizeGame.value = false;
+      }
+
+      if (animationStatus == AnimationStatus.dismissed) {
+        _minimizeGame.value = true;
+      }
+    });
+
+    _scaleAnimationController.reverse();
+
     WidgetsBinding.instance.addPostFrameCallback(getListOfCells);
   }
 
-  void _startGame() {
-    interval = Duration(milliseconds: 500);
-    Timer.periodic(interval, (Timer t) => _runThroughGeneration());
+  Future<void> _toggleGameState() async {
+    if (_isGameRunning.value) {
+      _gameTimer?.cancel();
+      await _colorAnimationController.reverse();
+      _isGameRunning.value = false;
+    } else {
+      if (_gameTimer == null || !_gameTimer.isActive) {
+        _gameTimer = Timer.periodic(_interval, (Timer t) async {
+          return await _runThroughGeneration();
+        });
+      }
+
+      await _colorAnimationController.forward();
+      _isGameRunning.value = true;
+    }
   }
 
-  _runThroughGeneration() {
-    _listOfCells.forEach((cell) {
-      List<Offset> listOfNeighboringPoints =
+  List<Cell> getUpdatedListOfCells(List<Cell> previousListOfCells) {
+    List<Cell> updatedListOfCells = previousListOfCells.map((cell) {
+      final List<Offset> listOfNeighboringPoints =
           cell.getNeighborPoints(_boxHeightDimension);
 
-      List<Cell> listOfNeigboringCells = _listOfCells.where((cell) {
+      final List<Cell> listOfNeigboringCells =
+          previousListOfCells.where((cell) {
         return listOfNeighboringPoints.contains(cell.point);
       }).toList();
 
-      _reactToNeighbors(cell, listOfNeigboringCells);
-    });
+      cell.cellState = _getNewCellState(
+          cell: cell, listOfNeighboringCells: listOfNeigboringCells);
 
-    setState(() {
-      generation++;
-    });
+      return cell;
+    }).toList();
+
+    return updatedListOfCells;
   }
 
-  _reactToNeighbors(Cell cell, List<Cell> listOfNeighboringCells) {
-    int numberOfLivingNeighbors = listOfNeighboringCells
+  CellState _getNewCellState(
+      {@required Cell cell, @required List<Cell> listOfNeighboringCells}) {
+    final int numberOfLivingNeighbors = listOfNeighboringCells
         .where((_) => _.cellState == CellState.alive)
         .length;
 
-    CellState newCellState = Rule().getNewCellState(
+    final CellState newCellState = Rule().getNewCellState(
         initialCellState: cell.cellState,
         numberOfLivingNeighbors: numberOfLivingNeighbors);
 
-    cell.cellState = newCellState;
+    return newCellState;
+  }
+
+  _runThroughGeneration() async {
+    _listOfCells.value = await SchedulerBinding.instance.scheduleTask(
+        (() => getUpdatedListOfCells(_listOfCells.value)), Priority.touch);
+    _generation.value++;
   }
 
   void getListOfCells(_) {
-    setState(() {
-      _boxHeightDimension = _customPaintSize.height / _numberOfBoxRows;
-    });
+    final int numberOfBoxRows = _gridHeight ~/ _boxHeightDimension;
+    final int numberOfBoxColumns = _gridWidth ~/ _boxHeightDimension;
 
-    final radius = _boxHeightDimension / 2;
-    final int numberOfBoxColumns =
-        (_customPaintSize.width - _screenPadding) ~/ _boxHeightDimension;
+    final double extraHorizontalSpace = _gridWidth % _boxHeightDimension;
+    final double extraVerticalSpace = _gridHeight % _boxHeightDimension;
 
-    Offset offset = Offset(radius, radius);
+    final double halfExtraHorizontalSpace = extraHorizontalSpace / 2;
+    final double halfExtraVerticalSpace = extraVerticalSpace / 2;
 
-    for (var i = 1; i < _numberOfBoxRows; i++) {
-      offset = Offset(radius, i * _boxHeightDimension);
+    final double halfBoxHeight = _boxHeightDimension / 2;
 
-      for (var i = 0; i < numberOfBoxColumns; i++) {
-        var newOffsetDx = offset.dx + _boxHeightDimension;
-        var newOffsetDy = offset.dy;
-        offset = Offset(newOffsetDx, newOffsetDy);
-        _listOfCells.add(Cell(
-            Random().nextBool() ? CellState.alive : CellState.dead, offset));
+    for (var rowIndex = 1; rowIndex < numberOfBoxRows; rowIndex++) {
+      num dy = (rowIndex * _boxHeightDimension) + halfExtraVerticalSpace;
+      for (var columnIndex = 0;
+          columnIndex < numberOfBoxColumns;
+          columnIndex++) {
+        num dx = (columnIndex * _boxHeightDimension);
+
+        Offset offset = Offset(
+            dx + halfBoxHeight + halfExtraHorizontalSpace, dy - halfBoxHeight);
+
+        _listOfCells.value = [
+          ..._listOfCells.value,
+          Cell(Random().nextBool() ? CellState.alive : CellState.dead, offset)
+        ];
       }
     }
 
-    setState(() {
-      generation++;
-    });
+    _generation.value++;
   }
 
-  _getCustomPaintSize(_) {
-    final RenderBox containerRenderBox =
-        _customPaintKey.currentContext.findRenderObject();
-    _customPaintSize = containerRenderBox.size;
-  }
+  final double _verticalPaddingOneSide = 4.0;
+
+  double get _screenHeight =>
+      MediaQuery.of(context).removePadding(removeTop: true).size.height;
+  double get _screenWidth => MediaQuery.of(context).size.width;
+  double get _optionBarHeight => _screenHeight * 0.10;
+  double get _gridHeight =>
+      _screenHeight - (_optionBarHeight * 2) - (_verticalPaddingOneSide * 2);
+  double get _gridWidth => _screenWidth;
 
   @override
   Widget build(BuildContext context) {
     return SafeArea(
       child: Scaffold(
         backgroundColor: AppColors.black,
-        appBar: AppBar(
-          title: Text(
-            AppStrings.appTitle,
-          ),
-          backgroundColor: Colors.transparent,
-          elevation: 0.0,
-          actions: <Widget>[
-            Center(
-              child: Padding(
-                padding: const EdgeInsets.all(20.0),
-                child: Text(
-                  generation.toString(),
-                  style: TextStyle(color: Colors.white),
-                ),
-              ),
-            )
-          ],
-        ),
-        body: Padding(
-          padding: EdgeInsets.all(_screenPadding),
-          child: Container(
-            color: Colors.black,
-            child: CustomPaint(
-              key: _customPaintKey,
-              painter: GameOfLifePainter(
-                  padding: 2 * _screenPadding,
-                  numberOfBoxRows: _numberOfBoxRows,
-                  listOfCells: _listOfCells,
-                  boxHeightDimension: _boxHeightDimension),
-              child: Container(),
+        body: Column(
+          children: [
+            _buildGenerationCountStatusBar(),
+            Expanded(
+              child: _buildGrid(),
             ),
-          ),
-        ),
-        floatingActionButton: FloatingActionButton(
-          backgroundColor: Colors.white,
-          foregroundColor: Colors.black,
-          mini: true,
-          onPressed: _startGame,
-          tooltip: 'Start Game',
-          child: Icon(Icons.play_arrow),
+            _buildStartStopButton(),
+          ],
         ),
       ),
     );
   }
+
+  Widget _buildStartStopButton() {
+    return SizedBox(
+      height: _optionBarHeight,
+      child: Container(
+        decoration: BoxDecoration(
+          border: Border.all(color: AppColors.hackerGreen),
+        ),
+        child: Padding(
+          padding: const EdgeInsets.all(4.0),
+          child: Container(
+            decoration: BoxDecoration(
+                border: Border.all(
+              color: AppColors.hackerGreen,
+            )),
+            child: InkWell(
+              onTap: _toggleGameState,
+              splashColor: AppColors.hackerGreen,
+              child: Center(
+                child: ValueListenableBuilder(
+                  valueListenable: _isGameRunning,
+                  builder: (_, gameRunningStateListenable, ___) => Text(
+                    gameRunningStateListenable ? 'Stop' : 'Start',
+                    style: TextStyle(
+                      color: Colors.white,
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildGrid() {
+    return Padding(
+      padding: EdgeInsets.symmetric(vertical: _verticalPaddingOneSide),
+      child: Center(
+        child: RepaintBoundary(
+          child: Center(
+            child: ValueListenableBuilder(
+                valueListenable: _listOfCells,
+                builder: (BuildContext buildContext,
+                    List<Cell> listOfCellsListenable, Widget child) {
+                  if (listOfCellsListenable.isEmpty) {
+                    return CircularProgressIndicator();
+                  }
+                  return _buildGridCells(
+                      listOfCells: listOfCellsListenable,
+                      gridHeight: _gridHeight);
+                }),
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildGenerationCountStatusBar() {
+    return SizedBox(
+      height: _optionBarHeight,
+      child: Container(
+        decoration: BoxDecoration(
+          border: Border.all(color: AppColors.hackerGreen),
+        ),
+        child: Padding(
+          padding: const EdgeInsets.all(4.0),
+          child: Container(
+            decoration: BoxDecoration(
+                border: Border.all(
+              color: AppColors.hackerGreen,
+            )),
+            child: Padding(
+              padding: const EdgeInsets.all(8.0),
+              child: Center(
+                child: ValueListenableBuilder(
+                  valueListenable: _generation,
+                  builder: (BuildContext context, int generationListenable,
+                      Widget child) {
+                    return Text(
+                      generationListenable.toString(),
+                      style: TextStyle(color: AppColors.white),
+                    );
+                  },
+                ),
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  List<Widget> _getCellWidgetList({@required List<Cell> listOfCells}) {
+    List<Widget> widgetList = [];
+
+    for (var i = 0; i < listOfCells.length; i++) {
+      Cell cell = listOfCells.elementAt(i);
+
+      widgetList.add(
+        CustomPaint(
+          key: ValueKey(i),
+          painter: GameOfLifePainter(
+              key: ValueKey('00'), cell: cell, boxHeight: _boxHeightDimension),
+          child: Container(),
+        ),
+      );
+    }
+
+    return widgetList;
+  }
+
+  Widget _buildGridCells(
+      {@required List<Cell> listOfCells, @required double gridHeight}) {
+    List<Widget> widgetList = _getCellWidgetList(listOfCells: listOfCells);
+
+    return Stack(
+      children: widgetList,
+    );
+  }
 }
 
-class GameOfLifePainter extends CustomPainter {
-  final double padding;
-  final int numberOfBoxRows;
-  final List<Cell> listOfCells;
-  final boxHeightDimension;
+int i = 0;
 
-  GameOfLifePainter(
-      {@required this.padding,
-      @required this.numberOfBoxRows,
-      @required this.listOfCells,
-      @required this.boxHeightDimension});
+@immutable
+class GameOfLifePainter extends CustomPainter {
+  final Cell cell;
+  final double boxHeight;
+
+  static final bool showSkullEmojiForDeadCell = false;
+
+  static final Paint _aliveCellPaint = Paint()
+    ..color = AppColors.hackerGreen
+    ..style = PaintingStyle.fill
+    ..strokeWidth = 2.0;
+  static final Paint _deadCellPaint = Paint()..color = Colors.transparent;
+
+  static final Paint cellBorderPaint = Paint()
+    ..color = AppColors.hackerGreen
+    ..style = PaintingStyle.stroke
+    ..strokeWidth = 0.0;
+
+  static final Paint contentBorderPaint = Paint()
+    ..color = AppColors.black
+    ..style = PaintingStyle.stroke
+    ..strokeWidth = 4.0;
+
+  const GameOfLifePainter(
+      {@required Key key, @required this.cell, @required this.boxHeight});
 
   @override
   void paint(Canvas canvas, Size size) {
-    drawGrid(listOfCells, boxHeightDimension, canvas);
+    i++;
+    _drawBox(canvas: canvas, size: size, cell: cell);
   }
 
-  void drawGrid(
-      List<Cell> listOfCells, double boxHeightDimension, Canvas canvas) {
-    for (var i = 0; i < listOfCells.length; i++) {
-      Cell currentCell = listOfCells.elementAt(i);
-      final paint = Paint()
-        ..color = Colors.blue
-        ..style = currentCell.cellState == CellState.alive
-            ? PaintingStyle.fill
-            : PaintingStyle.stroke;
+  void _drawBox(
+      {@required Canvas canvas, @required Size size, @required Cell cell}) {
+    final CellState currentCellState = cell.cellState;
+    final Paint cellPaint =
+        currentCellState == CellState.alive ? _aliveCellPaint : _deadCellPaint;
 
-      Offset centerPoint = currentCell.point;
-      Rect rect = Rect.fromCircle(
-          center: centerPoint, radius: boxHeightDimension - padding);
-      canvas.drawRect(rect, paint);
+    final Offset cellPoint = cell.point;
+    final Offset centerPoint = Offset(cellPoint.dx, cellPoint.dy);
+    final double halfBoxHeight = boxHeight / 2;
+
+    Rect rect = Rect.fromCircle(center: centerPoint, radius: halfBoxHeight);
+    canvas.drawRect(rect, cellPaint);
+
+    if (currentCellState == CellState.dead) {
+      if (showSkullEmojiForDeadCell) {
+        final textStyle = TextStyle(
+          color: Colors.white,
+          fontSize: 8,
+        );
+        final textSpan = TextSpan(
+          text: '💀',
+          style: textStyle,
+        );
+        final textPainter = TextPainter(
+            text: textSpan,
+            textDirection: TextDirection.ltr,
+            textAlign: TextAlign.center);
+
+        textPainter.layout(
+          minWidth: 0,
+          maxWidth: size.width,
+        );
+
+        Offset textOffset = Offset(
+            centerPoint.dx - boxHeight / 4, centerPoint.dy - boxHeight / 4);
+
+        textPainter.paint(canvas, textOffset);
+      }
     }
+
+    canvas.drawRect(rect, contentBorderPaint);
+
+    canvas.drawRect(rect, cellBorderPaint);
   }
 
   @override
-  bool shouldRepaint(GameOfLifePainter oldDelegate) => true;
+  bool shouldRepaint(GameOfLifePainter oldDelegate) {
+    return true;
+  }
 }
