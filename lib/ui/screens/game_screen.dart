@@ -128,16 +128,22 @@ class _GameScreenState extends State<GameScreen> with TickerProviderStateMixin {
     final int numberOfBoxColumns = _gridWidth ~/ _boxHeightDimension;
 
     final double extraHorizontalSpace = _gridWidth % _boxHeightDimension;
-    final double extraHorizontalSpacePerBox = extraHorizontalSpace / numberOfBoxColumns;
+    final double extraVerticalSpace = _gridHeight % _boxHeightDimension;
+
+    final double halfExtraHorizontalSpace = extraHorizontalSpace / 2;
+    final double halfExtraVerticalSpace = extraVerticalSpace / 2;
+
     final double halfBoxHeight = _boxHeightDimension / 2;
 
     for (var rowIndex = 1; rowIndex < numberOfBoxRows; rowIndex++) {
-      num dy = rowIndex * _boxHeightDimension;
+      num dy = (rowIndex * _boxHeightDimension) + halfExtraVerticalSpace;
       for (var columnIndex = 0;
           columnIndex < numberOfBoxColumns;
           columnIndex++) {
         num dx = (columnIndex * _boxHeightDimension);
-        Offset offset = Offset(dx + halfBoxHeight + extraHorizontalSpacePerBox, dy - halfBoxHeight);
+
+        Offset offset = Offset(
+            dx + halfBoxHeight + halfExtraHorizontalSpace, dy - halfBoxHeight);
 
         _listOfCells.value = [
           ..._listOfCells.value,
@@ -149,11 +155,14 @@ class _GameScreenState extends State<GameScreen> with TickerProviderStateMixin {
     _generation.value++;
   }
 
+  final double _verticalPaddingOneSide = 4.0;
+
   double get _screenHeight =>
       MediaQuery.of(context).removePadding(removeTop: true).size.height;
   double get _screenWidth => MediaQuery.of(context).size.width;
   double get _optionBarHeight => _screenHeight * 0.10;
-  double get _gridHeight => _screenHeight - (_optionBarHeight * 2);
+  double get _gridHeight =>
+      _screenHeight - (_optionBarHeight * 2) - (_verticalPaddingOneSide * 2);
   double get _gridWidth => _screenWidth;
 
   @override
@@ -190,11 +199,12 @@ class _GameScreenState extends State<GameScreen> with TickerProviderStateMixin {
             )),
             child: InkWell(
               onTap: _toggleGameState,
+              splashColor: AppColors.hackerGreen,
               child: Center(
                 child: ValueListenableBuilder(
                   valueListenable: _isGameRunning,
                   builder: (_, gameRunningStateListenable, ___) => Text(
-                    gameRunningStateListenable ? 'Run' : 'Start',
+                    gameRunningStateListenable ? 'Stop' : 'Start',
                     style: TextStyle(
                       color: Colors.white,
                     ),
@@ -209,20 +219,23 @@ class _GameScreenState extends State<GameScreen> with TickerProviderStateMixin {
   }
 
   Widget _buildGrid() {
-    return Center(
-      child: RepaintBoundary(
-        child: Center(
-          child: ValueListenableBuilder(
-              valueListenable: _listOfCells,
-              builder: (BuildContext buildContext,
-                  List<Cell> listOfCellsListenable, Widget child) {
-                if (listOfCellsListenable.isEmpty) {
-                  return CircularProgressIndicator();
-                }
-                return _buildGridCells(
-                    listOfCells: listOfCellsListenable,
-                    gridHeight: _gridHeight);
-              }),
+    return Padding(
+      padding: EdgeInsets.symmetric(vertical: _verticalPaddingOneSide),
+      child: Center(
+        child: RepaintBoundary(
+          child: Center(
+            child: ValueListenableBuilder(
+                valueListenable: _listOfCells,
+                builder: (BuildContext buildContext,
+                    List<Cell> listOfCellsListenable, Widget child) {
+                  if (listOfCellsListenable.isEmpty) {
+                    return CircularProgressIndicator();
+                  }
+                  return _buildGridCells(
+                      listOfCells: listOfCellsListenable,
+                      gridHeight: _gridHeight);
+                }),
+          ),
         ),
       ),
     );
@@ -299,12 +312,23 @@ class GameOfLifePainter extends CustomPainter {
   final Cell cell;
   final double boxHeight;
 
+  static final bool showSkullEmojiForDeadCell = false;
+
   static final Paint _aliveCellPaint = Paint()
     ..color = AppColors.hackerGreen
-    ..style = PaintingStyle.fill;
-  static final Paint _deadCellPaint = Paint()
-    ..color = AppColors.red
-    ..style = PaintingStyle.stroke;
+    ..style = PaintingStyle.fill
+    ..strokeWidth = 2.0;
+  static final Paint _deadCellPaint = Paint()..color = Colors.transparent;
+
+  static final Paint cellBorderPaint = Paint()
+    ..color = AppColors.hackerGreen
+    ..style = PaintingStyle.stroke
+    ..strokeWidth = 0.0;
+
+  static final Paint contentBorderPaint = Paint()
+    ..color = AppColors.black
+    ..style = PaintingStyle.stroke
+    ..strokeWidth = 4.0;
 
   const GameOfLifePainter(
       {@required Key key, @required this.cell, @required this.boxHeight});
@@ -318,41 +342,46 @@ class GameOfLifePainter extends CustomPainter {
   void _drawBox(
       {@required Canvas canvas, @required Size size, @required Cell cell}) {
     final CellState currentCellState = cell.cellState;
-    final paint =
+    final Paint cellPaint =
         currentCellState == CellState.alive ? _aliveCellPaint : _deadCellPaint;
 
     final Offset cellPoint = cell.point;
-    final Offset centerPoint =
-        Offset(cellPoint.dx, cellPoint.dy );
+    final Offset centerPoint = Offset(cellPoint.dx, cellPoint.dy);
     final double halfBoxHeight = boxHeight / 2;
 
     Rect rect = Rect.fromCircle(center: centerPoint, radius: halfBoxHeight);
-    canvas.drawRect(rect, paint);
+    canvas.drawRect(rect, cellPaint);
 
     if (currentCellState == CellState.dead) {
-      final textStyle = TextStyle(
-        color: Colors.white,
-        fontSize: 8,
-      );
-      final textSpan = TextSpan(
-        text: '💀',
-        style: textStyle,
-      );
-      final textPainter = TextPainter(
-          text: textSpan,
-          textDirection: TextDirection.ltr,
-          textAlign: TextAlign.center);
+      if (showSkullEmojiForDeadCell) {
+        final textStyle = TextStyle(
+          color: Colors.white,
+          fontSize: 8,
+        );
+        final textSpan = TextSpan(
+          text: '💀',
+          style: textStyle,
+        );
+        final textPainter = TextPainter(
+            text: textSpan,
+            textDirection: TextDirection.ltr,
+            textAlign: TextAlign.center);
 
-      textPainter.layout(
-        minWidth: 0,
-        maxWidth: size.width,
-      );
+        textPainter.layout(
+          minWidth: 0,
+          maxWidth: size.width,
+        );
 
-      Offset textOffset = Offset(
-          centerPoint.dx - boxHeight / 4, centerPoint.dy - boxHeight / 4);
+        Offset textOffset = Offset(
+            centerPoint.dx - boxHeight / 4, centerPoint.dy - boxHeight / 4);
 
-      textPainter.paint(canvas, textOffset);
+        textPainter.paint(canvas, textOffset);
+      }
     }
+
+    canvas.drawRect(rect, contentBorderPaint);
+
+    canvas.drawRect(rect, cellBorderPaint);
   }
 
   @override
